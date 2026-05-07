@@ -41,11 +41,9 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onCon
 
   useImperativeHandle(ref, () => ({
     writeText: (text: string) => {
-      const id = termIdRef.current;
-      if (id === null) return;
-      const encoder = new TextEncoder();
-      const bytes = Array.from(encoder.encode(text));
-      invoke("terminal_write", { id, data: bytes }).catch(() => {});
+      if (termRef.current) {
+        termRef.current.paste(text);
+      }
     },
   }), []);
 
