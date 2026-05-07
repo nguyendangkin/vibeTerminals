@@ -234,21 +234,6 @@ export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }:
     <>
       {!fullscreen && <div className="term-resize-handle" onMouseDown={handleResizeStart} />}
       <div className="term-panel" style={fullscreen ? { flex: 1, minHeight: 0 } : { height }}>
-        <div className="term-panel-header">
-          <span className="term-panel-title">TERMINAL</span>
-          <div className="term-panel-actions">
-            <button
-              className="term-action-btn term-action-close"
-              onClick={onToggleVisible}
-              title="Close Terminal Panel (Ctrl+`)"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.647.707.707L8 8.707z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
         {/* Flat pane render — all TerminalPanels stay at the same React depth,
             so they never remount when the tree is restructured */}
         <div
