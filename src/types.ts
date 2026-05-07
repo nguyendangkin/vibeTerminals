@@ -30,5 +30,4 @@ export interface Project {
 export interface WorkspaceState {
   tabs: EditorTab[];
   activeTabId: string | null;
-  splitTabId: string | null;
 }

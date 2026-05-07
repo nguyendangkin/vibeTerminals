@@ -20,21 +20,6 @@
   --status-text: #ffffff;
 }
 
-:root.light {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f3f3f3;
-  --bg-tertiary: #e8e8e8;
-  --border-color: #d4d4d4;
-  --text-primary: #333333;
-  --text-secondary: #666666;
-  --accent: #0078d4;
-  --tab-active-bg: #ffffff;
-  --tab-inactive-bg: #ececec;
-  --tree-hover: #e8e8e8;
-  --tree-active: #dcdcdc;
-  --status-bg: #0078d4;
-  --status-text: #ffffff;
-}
 
 html,
 body,
@@ -45,6 +30,40 @@ body,
   font-size: 13px;
   color: var(--text-primary);
   background: var(--bg-primary);
+}
+
+/* ─── Custom Scrollbars ──────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.cm-scroller,
+.filetree,
+.git-panel,
+.search-results,
+.command-palette-list,
+.git-diff-view,
+.tab-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
 .app-shell {
@@ -71,10 +90,6 @@ body,
   flex-shrink: 0;
   z-index: 10;
   gap: 0;
-}
-
-:root.light .project-bar {
-  background: #1a1a1a;
 }
 
 .project-bar-add {
@@ -672,95 +687,16 @@ body,
   background: var(--bg-tertiary);
 }
 
-/* Editor with minimap */
-.editor-with-minimap {
+/* Editor area */
+.editor-area {
   flex: 1;
   min-height: 0;
   display: flex;
   overflow: hidden;
 }
 
-.editor-with-minimap > .editor-panel {
+.editor-area > .editor-panel {
   flex: 1;
-}
-
-/* Minimap */
-.minimap {
-  width: 80px;
-  min-width: 80px;
-  border-left: 1px solid var(--border-color);
-  overflow: hidden;
-  background: var(--bg-primary);
-}
-
-.minimap-canvas {
-  transform-origin: top left;
-  transform: scale(0.15);
-  width: 667%;
-  height: 667%;
-}
-
-.minimap-canvas .cm-editor {
-  background: transparent;
-}
-
-.minimap-canvas .cm-editor .cm-scroller {
-  overflow: hidden !important;
-}
-
-.minimap-canvas .cm-editor .cm-content {
-  padding: 0 !important;
-}
-
-.minimap-canvas .cm-editor .cm-gutters {
-  display: none;
-}
-
-/* Split view */
-.split-container {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  overflow: hidden;
-}
-
-.split-pane {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.split-pane:first-child {
-  border-right: 1px solid var(--border-color);
-}
-
-.split-pane-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 2px 8px;
-  font-size: 11px;
-  color: var(--text-secondary);
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border-color);
-  min-height: 22px;
-}
-
-.split-close-btn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 0 4px;
-  border-radius: 3px;
-  line-height: 1;
-}
-
-.split-close-btn:hover {
-  color: var(--text-primary);
-  background: rgba(128, 128, 128, 0.2);
 }
 
 /* Editor panel */
@@ -1237,10 +1173,6 @@ body,
   border-top: 1px solid var(--border-color);
   background: #1a1a1a;
   overflow: hidden;
-}
-
-:root.light .term-panel {
-  background: #1e1e1e;
 }
 
 /* ─── Terminal Panel Header ─────────────────────────────────────────────── */

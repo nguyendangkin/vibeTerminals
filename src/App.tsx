@@ -6,7 +6,6 @@ import { EditorPanel } from "./components/EditorPanel";
 import { FileTree } from "./components/FileTree";
 import { SearchPanel } from "./components/SearchPanel";
 import { CommandPalette } from "./components/CommandPalette";
-import { Minimap } from "./components/Minimap";
 import { GitPanel } from "./components/GitPanel";
 import { ProjectBar, type SidebarTab } from "./components/ProjectBar";
 import { TerminalContainer } from "./components/TerminalContainer";
@@ -16,7 +15,7 @@ let tabCounter = 0;
 let projectCounter = 0;
 
 function emptyWorkspace(): WorkspaceState {
-  return { tabs: [], activeTabId: null, splitTabId: null };
+  return { tabs: [], activeTabId: null };
 }
 
 function App() {
@@ -30,15 +29,11 @@ function App() {
   const activeWorkspace = activeProjectId ? (workspaces[activeProjectId] ?? emptyWorkspace()) : emptyWorkspace();
   const tabs = activeWorkspace.tabs;
   const activeTabId = activeWorkspace.activeTabId;
-  const splitTabId = activeWorkspace.splitTabId;
   const rootPath = activeProject?.path ?? null;
   const fileTree = activeProject?.fileTree ?? [];
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
-  const splitTab = splitTabId ? (tabs.find((t) => t.id === splitTabId) ?? null) : null;
 
   // ── ui state ──────────────────────────────────────────────────────────────
-  const [dark, setDark] = useState(true);
-  const [showMinimap, setShowMinimap] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("files");
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(240);
@@ -57,11 +52,6 @@ function App() {
   const setActiveTabId = useCallback((id: string | null) => {
     if (!activeProjectId) return;
     updateWorkspace(activeProjectId, (ws) => ({ ...ws, activeTabId: id }));
-  }, [activeProjectId, updateWorkspace]);
-
-  const setSplitTabId = useCallback((id: string | null) => {
-    if (!activeProjectId) return;
-    updateWorkspace(activeProjectId, (ws) => ({ ...ws, splitTabId: id }));
   }, [activeProjectId, updateWorkspace]);
 
   // ── file helpers ─────────────────────────────────────────────────────────
@@ -143,7 +133,6 @@ function App() {
           activeTabId: ws.activeTabId === deletedId
             ? (nextTabs[Math.min(idx, nextTabs.length - 1)]?.id ?? null)
             : ws.activeTabId,
-          splitTabId: ws.splitTabId === deletedId ? null : ws.splitTabId,
         };
       });
       await refreshProjectTree(activeProjectId, rootPath);
@@ -180,7 +169,6 @@ function App() {
         ...ws,
         tabs: next,
         activeTabId: ws.activeTabId === id ? (next[Math.min(idx, next.length - 1)]?.id ?? null) : ws.activeTabId,
-        splitTabId: ws.splitTabId === id ? null : ws.splitTabId,
       };
     });
   }, [activeProjectId, updateWorkspace]);
@@ -213,14 +201,6 @@ function App() {
       tabs: ws.tabs.map((t) => t.id === activeTabId ? { ...t, content, dirty: true } : t),
     }));
   }, [activeProjectId, activeTabId, updateWorkspace]);
-
-  const handleSplitContentChange = useCallback((content: string) => {
-    if (!activeProjectId || !splitTabId) return;
-    updateWorkspace(activeProjectId, (ws) => ({
-      ...ws,
-      tabs: ws.tabs.map((t) => t.id === splitTabId ? { ...t, content, dirty: true } : t),
-    }));
-  }, [activeProjectId, splitTabId, updateWorkspace]);
 
   // ── sidebar resize ────────────────────────────────────────────────────────
   const handleResizeStart = useCallback((e: RMouseEvent) => {
@@ -273,11 +253,6 @@ function App() {
       return;
     }
     if (ctrl && key === "`") { e.preventDefault(); setShowTerminal((v) => !v); return; }
-    if (ctrl && key === "\\") {
-      e.preventDefault();
-      setSplitTabId(splitTabId ? null : activeTabId);
-      return;
-    }
     if (ctrl) {
       switch (key) {
         case "o": e.preventDefault(); handleAddProject(); break;
@@ -289,11 +264,9 @@ function App() {
         case "w": e.preventDefault(); activeTabId && handleCloseTab(activeTabId); break;
       }
     }
-  }, [tabs, activeTabId, splitTabId, handleAddProject, handleSaveFile,
+  }, [tabs, activeTabId, handleAddProject, handleSaveFile,
       handleNewTab, handleCloseTab, openFileInTab, handleToggleGit,
-      setActiveTabId, setSplitTabId]);
-
-  useEffect(() => { document.documentElement.classList.toggle("light", !dark); }, [dark]);
+      setActiveTabId]);
 
   // ── command palette entries ───────────────────────────────────────────────
   const commands = [
@@ -302,9 +275,6 @@ function App() {
     { id: "new-tab", label: "New Tab", shortcut: "Ctrl+N", action: handleNewTab },
     { id: "close-tab", label: "Close Tab", shortcut: "Ctrl+W", action: () => activeTabId && handleCloseTab(activeTabId) },
     { id: "search", label: "Search in Files", shortcut: "Ctrl+Shift+F", action: () => setShowSearch(true) },
-    { id: "toggle-theme", label: "Toggle Dark/Light Theme", action: () => setDark((d) => !d) },
-    { id: "split-editor", label: "Split Editor", shortcut: "Ctrl+\\", action: () => setSplitTabId(splitTabId ? null : activeTabId) },
-    { id: "toggle-minimap", label: "Toggle Minimap", action: () => setShowMinimap((v) => !v) },
     { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => setShowTerminal((v) => !v) },
     { id: "git-panel", label: "Source Control", shortcut: "Ctrl+Shift+G", action: handleToggleGit },
   ];
@@ -384,29 +354,10 @@ function App() {
           onNewTab={handleNewTab}
         />
 
-        {/* Editor(s) */}
-        {splitTabId ? (
-          <div className="split-container">
-            <div className="split-pane">
-              <div className="split-pane-header">
-                <span>{activeTab?.title ?? "No file"}</span>
-                <button className="split-close-btn" onClick={() => setSplitTabId(null)}>×</button>
-              </div>
-              <EditorPanel tab={activeTab} dark={dark} onChange={handleContentChange} />
-            </div>
-            <div className="split-pane">
-              <div className="split-pane-header">
-                <span>{splitTab?.title ?? "No file"}</span>
-              </div>
-              <EditorPanel tab={splitTab} dark={dark} onChange={handleSplitContentChange} />
-            </div>
-          </div>
-        ) : (
-          <div className="editor-with-minimap">
-            <EditorPanel tab={activeTab} dark={dark} onChange={handleContentChange} />
-            {showMinimap && activeTab && <Minimap tab={activeTab} dark={dark} />}
-          </div>
-        )}
+        {/* Editor */}
+        <div className="editor-area">
+          <EditorPanel tab={activeTab} onChange={handleContentChange} />
+        </div>
 
         {/* Per-project terminals — always mounted so PTY processes and pane
             tree survive project switches and panel close/reopen.
@@ -429,22 +380,6 @@ function App() {
 
         {/* Quick action bar */}
         <div className="action-bar">
-          <button className="action-btn" onClick={() => setDark((d) => !d)} title="Toggle Theme (light/dark)">
-            {dark
-              ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-              : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            }
-          </button>
-          <button className="action-btn" onClick={() => setSplitTabId(splitTabId ? null : activeTabId)} title="Split Editor (Ctrl+\)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>
-            </svg>
-          </button>
-          <button className="action-btn" onClick={() => setShowMinimap((v) => !v)} title="Toggle Minimap">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2"/><rect x="15" y="3" width="6" height="18" rx="1" opacity="0.5"/>
-            </svg>
-          </button>
           <button className="action-btn" onClick={() => setShowTerminal((v) => !v)} title="Toggle Terminal (Ctrl+`)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>

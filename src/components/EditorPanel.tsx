@@ -34,7 +34,6 @@ import { EditorTab } from "../types";
 
 interface EditorPanelProps {
   tab: EditorTab | null;
-  dark: boolean;
   onChange: (content: string) => void;
   onCursorChange?: (line: number, col: number) => void;
 }
@@ -68,7 +67,7 @@ function detectLanguage(path: string | null): string {
   return map[ext || ""] || "plaintext";
 }
 
-export function EditorPanel({ tab, dark, onChange, onCursorChange }: EditorPanelProps) {
+export function EditorPanel({ tab, onChange, onCursorChange }: EditorPanelProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
@@ -99,12 +98,9 @@ export function EditorPanel({ tab, dark, onChange, onCursorChange }: EditorPanel
       syntaxHighlighting(defaultHighlightStyle),
       keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
       getLanguageExtension(lang),
+      oneDark,
       updateListener,
     ];
-
-    if (dark) {
-      extensions.push(oneDark);
-    }
 
     const state = EditorState.create({ doc: content, extensions });
     const view = new EditorView({ state, parent: editorRef.current });
@@ -114,7 +110,7 @@ export function EditorPanel({ tab, dark, onChange, onCursorChange }: EditorPanel
       view.destroy();
       viewRef.current = null;
     };
-  }, [tab?.id, dark]);
+  }, [tab?.id]);
 
   useEffect(() => {
     if (!viewRef.current || !tab) return;
