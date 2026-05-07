@@ -134,10 +134,11 @@ function computeLayout(
 interface TerminalContainerProps {
   cwd: string | null;
   visible: boolean;
+  fullscreen?: boolean;
   onToggleVisible: () => void;
 }
 
-export function TerminalContainer({ cwd, visible, onToggleVisible }: TerminalContainerProps) {
+export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }: TerminalContainerProps) {
   const [root, setRoot] = useState<PaneNode>(makeLeaf);
   const [activeId, setActiveId] = useState<string>(() => `term_${instCounter}`);
   const [globalShell, setGlobalShell] = useState(
@@ -236,8 +237,8 @@ export function TerminalContainer({ cwd, visible, onToggleVisible }: TerminalCon
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <>
-      <div className="term-resize-handle" onMouseDown={handleResizeStart} />
-      <div className="term-panel" style={{ height }}>
+      {!fullscreen && <div className="term-resize-handle" onMouseDown={handleResizeStart} />}
+      <div className="term-panel" style={fullscreen ? { flex: 1, minHeight: 0 } : { height }}>
         <div className="term-panel-header">
           <span className="term-panel-title">TERMINAL</span>
           <div className="term-panel-actions">

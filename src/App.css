@@ -77,6 +77,63 @@ body,
   user-select: none;
 }
 
+/* ─── Right area (top bar + content + terminal) ──────────────────────────── */
+.right-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.content-area {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ─── Top Bar ────────────────────────────────────────────────────────────── */
+.top-bar {
+  display: flex;
+  align-items: stretch;
+  background: #0e0e0e;
+  border-bottom: 1px solid var(--border-color);
+  height: 36px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  gap: 2px;
+}
+
+.top-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 100%;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  transition: color 0.1s, border-color 0.1s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.top-tab:hover {
+  color: var(--text-primary);
+}
+
+.top-tab-active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+
 /* ─── Project Bar (Discord-style) ───────────────────────────────────────── */
 .project-bar {
   width: 52px;

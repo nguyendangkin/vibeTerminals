@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Project } from "../types";
-
-export type SidebarTab = "files" | "git";
+import type { TopTab } from "./TopBar";
 
 const AVATAR_COLORS = [
   "#007acc", "#6a9955", "#ce9178", "#c586c0",
@@ -23,21 +22,19 @@ function initials(name: string): string {
 interface ProjectBarProps {
   projects: Project[];
   activeProjectId: string | null;
-  sidebarTab: SidebarTab | null;
+  activeTopTab: TopTab | null;
   onSelectProject: (id: string) => void;
   onCloseProject: (id: string) => void;
   onAddProject: () => void;
-  onToggleGit: () => void;
 }
 
 export function ProjectBar({
   projects,
   activeProjectId,
-  sidebarTab,
+  activeTopTab,
   onSelectProject,
   onCloseProject,
   onAddProject,
-  onToggleGit,
 }: ProjectBarProps) {
   return (
     <div className="project-bar">
@@ -53,7 +50,7 @@ export function ProjectBar({
 
       <div className="project-bar-list">
         {projects.map((p) => {
-          const isActive = p.id === activeProjectId && sidebarTab === "files";
+          const isActive = p.id === activeProjectId && activeTopTab === "explorer";
           return (
             <div
               key={p.id}
@@ -71,23 +68,6 @@ export function ProjectBar({
             </div>
           );
         })}
-      </div>
-
-      <div className="project-bar-bottom">
-        <button
-          className={`project-bar-icon-btn${sidebarTab === "git" ? " project-bar-icon-active" : ""}`}
-          onClick={onToggleGit}
-          title="Source Control (Ctrl+Shift+G)"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-            <circle cx="6" cy="6" r="2.5"/>
-            <circle cx="6" cy="18" r="2.5"/>
-            <circle cx="18" cy="9" r="2.5"/>
-            <path d="M6 8.5v7"/>
-            <path d="M8.5 9a5.5 5.5 0 0 1 5.5-2.5"/>
-            <path d="M18 11.5v1a5.5 5.5 0 0 1-5.5 5.5H9.5"/>
-          </svg>
-        </button>
       </div>
     </div>
   );

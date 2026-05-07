@@ -7,7 +7,8 @@ import { FileTree } from "./components/FileTree";
 import { SearchPanel } from "./components/SearchPanel";
 import { CommandPalette } from "./components/CommandPalette";
 import { GitPanel } from "./components/GitPanel";
-import { ProjectBar, type SidebarTab } from "./components/ProjectBar";
+import { ProjectBar } from "./components/ProjectBar";
+import { TopBar, type TopTab } from "./components/TopBar";
 import { TerminalContainer } from "./components/TerminalContainer";
 import "./App.css";
 
@@ -31,6 +32,7 @@ interface PersistedState {
   projects: { id: string; path: string; name: string }[];
   activeProjectId: string | null;
   workspaces: Record<string, PersistedWorkspace>;
+  topTab?: TopTab | null;
 }
 
 function emptyWorkspace(): WorkspaceState {
@@ -53,13 +55,14 @@ function App() {
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
 
   // ── ui state ──────────────────────────────────────────────────────────────
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("files");
-  const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [topTab, setTopTab] = useState<TopTab | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [resizingSidebar, setResizingSidebar] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
-  const [showTerminal, setShowTerminal] = useState(false);
+
+  const sidebarVisible = topTab === "explorer" || topTab === "git";
+  const showTerminal = topTab === "terminal";
 
   const shellRef = useRef<HTMLDivElement>(null);
   const hasRestoredRef = useRef(false);
@@ -114,6 +117,11 @@ function App() {
           ? saved.activeProjectId
           : restoredProjects[0].id;
         setActiveProjectId(validActiveId);
+        if (saved.topTab !== undefined) {
+          setTopTab(saved.topTab ?? "explorer");
+        } else {
+          setTopTab("explorer");
+        }
       }
       hasRestoredRef.current = true;
     }
@@ -134,9 +142,10 @@ function App() {
           },
         ])
       ),
+      topTab,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [projects, workspaces, activeProjectId]);
+  }, [projects, workspaces, activeProjectId, topTab]);
 
   // ── workspace helpers ─────────────────────────────────────────────────────
   const updateWorkspace = useCallback((pid: string, fn: (ws: WorkspaceState) => WorkspaceState) => {
@@ -305,25 +314,23 @@ function App() {
     return () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
   }, [resizingSidebar]);
 
-  // ── project bar handlers ─────────────────────────────────────────────────
+  // ── top bar & panel handlers ─────────────────────────────────────────────
+  const handleTopTab = useCallback((tab: TopTab) => {
+    setTopTab((prev) => (prev === tab ? null : tab));
+  }, []);
+
   const handleSelectProject = useCallback((id: string) => {
-    if (activeProjectId === id && sidebarTab === "files" && sidebarVisible) {
-      setSidebarVisible(false);
+    if (activeProjectId === id && topTab === "explorer") {
+      setTopTab(null);
     } else {
       setActiveProjectId(id);
-      setSidebarTab("files");
-      setSidebarVisible(true);
+      setTopTab("explorer");
     }
-  }, [activeProjectId, sidebarTab, sidebarVisible]);
+  }, [activeProjectId, topTab]);
 
   const handleToggleGit = useCallback(() => {
-    if (sidebarTab === "git" && sidebarVisible) {
-      setSidebarVisible(false);
-    } else {
-      setSidebarTab("git");
-      setSidebarVisible(true);
-    }
-  }, [sidebarTab, sidebarVisible]);
+    setTopTab((prev) => (prev === "git" ? null : "git"));
+  }, []);
 
   // ── keyboard shortcuts ────────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -333,7 +340,7 @@ function App() {
     if (ctrl && shift && key === "p") { e.preventDefault(); setShowPalette(true); return; }
     if (ctrl && shift && key === "f") { e.preventDefault(); setShowSearch(true); return; }
     if (ctrl && shift && key === "g") { e.preventDefault(); handleToggleGit(); return; }
-    if (ctrl && shift && key === "e") { e.preventDefault(); setSidebarTab("files"); setSidebarVisible(true); return; }
+    if (ctrl && shift && key === "e") { e.preventDefault(); setTopTab((prev) => (prev === "explorer" ? null : "explorer")); return; }
     if (ctrl && key === "tab") {
       e.preventDefault();
       if (tabs.length < 2) return;
@@ -341,7 +348,7 @@ function App() {
       setActiveTabId(tabs[(idx + (shift ? -1 : 1) + tabs.length) % tabs.length].id);
       return;
     }
-    if (ctrl && key === "`") { e.preventDefault(); setShowTerminal((v) => !v); return; }
+    if (ctrl && key === "`") { e.preventDefault(); setTopTab((prev) => (prev === "terminal" ? null : "terminal")); return; }
     if (ctrl) {
       switch (key) {
         case "o": e.preventDefault(); handleAddProject(); break;
@@ -364,7 +371,7 @@ function App() {
     { id: "new-tab", label: "New Tab", shortcut: "Ctrl+N", action: handleNewTab },
     { id: "close-tab", label: "Close Tab", shortcut: "Ctrl+W", action: () => activeTabId && handleCloseTab(activeTabId) },
     { id: "search", label: "Search in Files", shortcut: "Ctrl+Shift+F", action: () => setShowSearch(true) },
-    { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => setShowTerminal((v) => !v) },
+    { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => setTopTab((prev) => (prev === "terminal" ? null : "terminal")) },
     { id: "git-panel", label: "Source Control", shortcut: "Ctrl+Shift+G", action: handleToggleGit },
   ];
 
@@ -380,77 +387,80 @@ function App() {
       <ProjectBar
         projects={projects}
         activeProjectId={activeProjectId}
-        sidebarTab={sidebarVisible ? sidebarTab : null}
+        activeTopTab={topTab}
         onSelectProject={handleSelectProject}
         onCloseProject={handleCloseProject}
         onAddProject={handleAddProject}
-        onToggleGit={handleToggleGit}
       />
 
-      {/* Sidebar */}
-      {sidebarVisible && (
-        <>
-          <div className="sidebar" style={{ width: sidebarWidth }}>
-            <div className="sidebar-header">
-              <span className="sidebar-header-title">
-                {sidebarTab === "files" ? "Explorer" : sidebarTab === "git" ? "Source Control" : "Files"}
-              </span>
-              {sidebarTab === "files" && activeProject && (
-                <span className="sidebar-header-project">{activeProject.name}</span>
-              )}
-            </div>
+      {/* Right area: top bar + content */}
+      <div className="right-area">
+        <TopBar activeTab={topTab} onTabClick={handleTopTab} />
 
-            {sidebarTab === "files" && (
-              activeProject ? (
-                <FileTree
-                  rootPath={rootPath}
-                  tree={fileTree}
-                  onOpenFile={openFileInTab}
-                  onDeleteEntry={handleDeleteEntry}
-                  onRenameEntry={handleRenameEntry}
-                />
-              ) : (
-                <div className="project-empty-state">
-                  <p>No folder opened</p>
-                  <button className="project-open-btn" onClick={handleAddProject}>
-                    Open Folder
-                  </button>
+        <div className="content-area" style={topTab === "terminal" ? { display: "none" } : undefined}>
+          {/* Sidebar (explorer / git) */}
+          {sidebarVisible && (
+            <>
+              <div className="sidebar" style={{ width: sidebarWidth }}>
+                <div className="sidebar-header">
+                  <span className="sidebar-header-title">
+                    {topTab === "explorer" ? "Explorer" : "Source Control"}
+                  </span>
+                  {topTab === "explorer" && activeProject && (
+                    <span className="sidebar-header-project">{activeProject.name}</span>
+                  )}
                 </div>
-              )
+
+                {topTab === "explorer" && (
+                  activeProject ? (
+                    <FileTree
+                      rootPath={rootPath}
+                      tree={fileTree}
+                      onOpenFile={openFileInTab}
+                      onDeleteEntry={handleDeleteEntry}
+                      onRenameEntry={handleRenameEntry}
+                    />
+                  ) : (
+                    <div className="project-empty-state">
+                      <p>No folder opened</p>
+                      <button className="project-open-btn" onClick={handleAddProject}>
+                        Open Folder
+                      </button>
+                    </div>
+                  )
+                )}
+
+                {topTab === "git" && <GitPanel rootPath={rootPath} />}
+              </div>
+              <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
+            </>
+          )}
+
+          {/* Main editor area */}
+          <div className="main-area">
+            {showSearch && (
+              <SearchPanel
+                rootPath={rootPath}
+                onOpenFile={(p) => { openFileInTab(p); setShowSearch(false); }}
+                onClose={() => setShowSearch(false)}
+              />
             )}
 
-            {sidebarTab === "git" && <GitPanel rootPath={rootPath} />}
+            <TabBar
+              tabs={tabs}
+              activeTabId={activeTabId}
+              onSelectTab={setActiveTabId}
+              onCloseTab={handleCloseTab}
+              onNewTab={handleNewTab}
+            />
+
+            <div className="editor-area">
+              <EditorPanel tab={activeTab} onChange={handleContentChange} />
+            </div>
           </div>
-          <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
-        </>
-      )}
-
-      {/* Main editor area */}
-      <div className="main-area">
-        {showSearch && (
-          <SearchPanel
-            rootPath={rootPath}
-            onOpenFile={(p) => { openFileInTab(p); setShowSearch(false); }}
-            onClose={() => setShowSearch(false)}
-          />
-        )}
-
-        <TabBar
-          tabs={tabs}
-          activeTabId={activeTabId}
-          onSelectTab={setActiveTabId}
-          onCloseTab={handleCloseTab}
-          onNewTab={handleNewTab}
-        />
-
-        {/* Editor */}
-        <div className="editor-area">
-          <EditorPanel tab={activeTab} onChange={handleContentChange} />
         </div>
 
-        {/* Per-project terminals — always mounted so PTY processes and pane
-            tree survive project switches and panel close/reopen.
-            CSS display:none hides from layout without unmounting. */}
+        {/* Per-project terminals — always mounted, hidden via CSS when inactive */}
         {projects.map((p) => {
           const active = showTerminal && p.id === activeProjectId;
           return (
@@ -461,20 +471,12 @@ function App() {
               <TerminalContainer
                 cwd={p.path}
                 visible={active}
-                onToggleVisible={() => setShowTerminal(false)}
+                fullscreen
+                onToggleVisible={() => setTopTab(null)}
               />
             </div>
           );
         })}
-
-        {/* Quick action bar */}
-        <div className="action-bar">
-          <button className="action-btn" onClick={() => setShowTerminal((v) => !v)} title="Toggle Terminal (Ctrl+`)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
-            </svg>
-          </button>
-        </div>
       </div>
 
       {showPalette && (
