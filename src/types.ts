@@ -19,3 +19,16 @@ export interface TerminalInstance {
   name: string;
   shell?: string; // "cmd" | "powershell" | "pwsh" | undefined = auto
 }
+
+export interface Project {
+  id: string;
+  path: string;
+  name: string;
+  fileTree: DirEntry[];
+}
+
+export interface WorkspaceState {
+  tabs: EditorTab[];
+  activeTabId: string | null;
+  splitTabId: string | null;
+}

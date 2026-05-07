@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, type MouseEvent as RMouseEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { EditorTab, DirEntry } from "./types";
+import { EditorTab, DirEntry, Project, WorkspaceState } from "./types";
 import { TabBar } from "./components/TabBar";
 import { EditorPanel } from "./components/EditorPanel";
 import { FileTree } from "./components/FileTree";
@@ -8,56 +8,84 @@ import { SearchPanel } from "./components/SearchPanel";
 import { CommandPalette } from "./components/CommandPalette";
 import { Minimap } from "./components/Minimap";
 import { GitPanel } from "./components/GitPanel";
-import { ActivityBar, type SidebarTab } from "./components/ActivityBar";
+import { ProjectBar, type SidebarTab } from "./components/ProjectBar";
 import { TerminalContainer } from "./components/TerminalContainer";
 import "./App.css";
 
 let tabCounter = 0;
+let projectCounter = 0;
+
+function emptyWorkspace(): WorkspaceState {
+  return { tabs: [], activeTabId: null, splitTabId: null };
+}
 
 function App() {
-  // ── editor state ─────────────────────────────────────────────────────────
-  const [tabs, setTabs] = useState<EditorTab[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [splitTabId, setSplitTabId] = useState<string | null>(null);
+  // ── multi-project state ───────────────────────────────────────────────────
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [workspaces, setWorkspaces] = useState<Record<string, WorkspaceState>>({});
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+
+  // Derived from active project/workspace
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
+  const activeWorkspace = activeProjectId ? (workspaces[activeProjectId] ?? emptyWorkspace()) : emptyWorkspace();
+  const tabs = activeWorkspace.tabs;
+  const activeTabId = activeWorkspace.activeTabId;
+  const splitTabId = activeWorkspace.splitTabId;
+  const rootPath = activeProject?.path ?? null;
+  const fileTree = activeProject?.fileTree ?? [];
+  const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
+  const splitTab = splitTabId ? (tabs.find((t) => t.id === splitTabId) ?? null) : null;
+
+  // ── ui state ──────────────────────────────────────────────────────────────
   const [dark, setDark] = useState(true);
   const [showMinimap, setShowMinimap] = useState(true);
-
-  // ── workspace ─────────────────────────────────────────────────────────────
-  const [rootPath, setRootPath] = useState<string | null>(null);
-  const [fileTree, setFileTree] = useState<DirEntry[]>([]);
-
-  // ── sidebar ───────────────────────────────────────────────────────────────
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>("files");
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [resizingSidebar, setResizingSidebar] = useState(false);
-
-  // ── overlays ──────────────────────────────────────────────────────────────
   const [showSearch, setShowSearch] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
-
-  // ── terminal ──────────────────────────────────────────────────────────────
   const [showTerminal, setShowTerminal] = useState(false);
 
   const shellRef = useRef<HTMLDivElement>(null);
-  const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
-  const splitTab = splitTabId ? (tabs.find((t) => t.id === splitTabId) ?? null) : null;
 
-  // ── file system ──────────────────────────────────────────────────────────
+  // ── workspace helpers ─────────────────────────────────────────────────────
+  const updateWorkspace = useCallback((pid: string, fn: (ws: WorkspaceState) => WorkspaceState) => {
+    setWorkspaces((prev) => ({ ...prev, [pid]: fn(prev[pid] ?? emptyWorkspace()) }));
+  }, []);
+
+  const setActiveTabId = useCallback((id: string | null) => {
+    if (!activeProjectId) return;
+    updateWorkspace(activeProjectId, (ws) => ({ ...ws, activeTabId: id }));
+  }, [activeProjectId, updateWorkspace]);
+
+  const setSplitTabId = useCallback((id: string | null) => {
+    if (!activeProjectId) return;
+    updateWorkspace(activeProjectId, (ws) => ({ ...ws, splitTabId: id }));
+  }, [activeProjectId, updateWorkspace]);
+
+  // ── file helpers ─────────────────────────────────────────────────────────
   const createTab = useCallback(
     (title: string, path: string | null, content: string, language: string): EditorTab =>
       ({ id: `tab_${++tabCounter}`, title, path, content, dirty: false, language }),
     [],
   );
 
-  const refreshFileTree = useCallback(async (p: string) => {
-    try { setFileTree(await invoke<DirEntry[]>("list_dir", { path: p })); }
-    catch (err) { console.error(err); }
+  const refreshProjectTree = useCallback(async (pid: string, path: string) => {
+    try {
+      const tree = await invoke<DirEntry[]>("list_dir", { path });
+      setProjects((prev) => prev.map((p) => p.id === pid ? { ...p, fileTree: tree } : p));
+    } catch (err) { console.error(err); }
   }, []);
 
   const openFileInTab = useCallback(async (filePath: string) => {
-    const existing = tabs.find((t) => t.path === filePath);
-    if (existing) { setActiveTabId(existing.id); return; }
+    if (!activeProjectId) return;
+    const ws = workspaces[activeProjectId] ?? emptyWorkspace();
+    const existing = ws.tabs.find((t) => t.path === filePath);
+    if (existing) {
+      updateWorkspace(activeProjectId, (w) => ({ ...w, activeTabId: existing.id }));
+      return;
+    }
     try {
       const content = await invoke<string>("read_file_content", { path: filePath });
       const fileName = filePath.split(/[/\\]/).pop() ?? "untitled";
@@ -68,60 +96,97 @@ function App() {
         rs: "rust", py: "python", md: "markdown", xml: "xml",
       };
       const tab = createTab(fileName, filePath, content, langMap[ext] ?? "plaintext");
-      setTabs((p) => [...p, tab]);
-      setActiveTabId(tab.id);
+      updateWorkspace(activeProjectId, (w) => ({ ...w, tabs: [...w.tabs, tab], activeTabId: tab.id }));
     } catch (err) { console.error("Failed to open file:", err); }
-  }, [tabs, createTab]);
+  }, [activeProjectId, workspaces, createTab, updateWorkspace]);
 
-  const handleOpenFolder = useCallback(async () => {
+  // ── project actions ───────────────────────────────────────────────────────
+  const handleAddProject = useCallback(async () => {
     try {
       const path = await invoke<string | null>("pick_folder");
       if (!path) return;
-      setRootPath(path);
-      await refreshFileTree(path);
+      const name = path.split(/[/\\]/).pop() ?? path;
+      const id = `proj_${++projectCounter}`;
+      const tree = await invoke<DirEntry[]>("list_dir", { path });
+      setProjects((prev) => [...prev, { id, path, name, fileTree: tree }]);
+      setWorkspaces((prev) => ({ ...prev, [id]: emptyWorkspace() }));
+      setActiveProjectId(id);
     } catch (err) { console.error(err); }
-  }, [refreshFileTree]);
+  }, []);
 
-  useEffect(() => { handleOpenFolder(); }, []); // eslint-disable-line
+  const handleCloseProject = useCallback((projectId: string) => {
+    const idx = projects.findIndex((p) => p.id === projectId);
+    const remaining = projects.filter((p) => p.id !== projectId);
+    setProjects(remaining);
+    setWorkspaces((prev) => {
+      const next = { ...prev };
+      delete next[projectId];
+      return next;
+    });
+    if (activeProjectId === projectId) {
+      const fallback = remaining[Math.min(idx, remaining.length - 1)];
+      setActiveProjectId(fallback?.id ?? null);
+    }
+  }, [projects, activeProjectId]);
 
   const handleDeleteEntry = useCallback(async (path: string) => {
+    if (!activeProjectId || !rootPath) return;
     try {
       await invoke("delete_file", { path });
-      setTabs((p) => p.filter((t) => t.path !== path));
-      if (rootPath) await refreshFileTree(rootPath);
+      updateWorkspace(activeProjectId, (ws) => {
+        const nextTabs = ws.tabs.filter((t) => t.path !== path);
+        const deletedId = ws.tabs.find((t) => t.path === path)?.id;
+        const idx = ws.tabs.findIndex((t) => t.id === deletedId);
+        return {
+          ...ws,
+          tabs: nextTabs,
+          activeTabId: ws.activeTabId === deletedId
+            ? (nextTabs[Math.min(idx, nextTabs.length - 1)]?.id ?? null)
+            : ws.activeTabId,
+          splitTabId: ws.splitTabId === deletedId ? null : ws.splitTabId,
+        };
+      });
+      await refreshProjectTree(activeProjectId, rootPath);
     } catch (err) { console.error(err); }
-  }, [rootPath, refreshFileTree]);
+  }, [activeProjectId, rootPath, updateWorkspace, refreshProjectTree]);
 
   const handleRenameEntry = useCallback(async (oldPath: string, newName: string) => {
+    if (!activeProjectId || !rootPath) return;
     try {
       const parent = oldPath.replace(/[/\\][^/\\]*$/, "");
       const newPath = parent + "/" + newName;
       await invoke("rename_entry", { oldPath, newPath });
-      setTabs((p) => p.map((t) =>
-        t.path === oldPath ? { ...t, path: newPath, title: newName } : t));
-      if (rootPath) await refreshFileTree(rootPath);
+      updateWorkspace(activeProjectId, (ws) => ({
+        ...ws,
+        tabs: ws.tabs.map((t) => t.path === oldPath ? { ...t, path: newPath, title: newName } : t),
+      }));
+      await refreshProjectTree(activeProjectId, rootPath);
     } catch (err) { console.error(err); }
-  }, [rootPath, refreshFileTree]);
+  }, [activeProjectId, rootPath, updateWorkspace, refreshProjectTree]);
 
-  // ── tab actions ──────────────────────────────────────────────────────────
+  // ── tab actions ───────────────────────────────────────────────────────────
   const handleNewTab = useCallback(() => {
+    if (!activeProjectId) return;
     const tab = createTab("untitled", null, "", "plaintext");
-    setTabs((p) => [...p, tab]);
-    setActiveTabId(tab.id);
-  }, [createTab]);
+    updateWorkspace(activeProjectId, (ws) => ({ ...ws, tabs: [...ws.tabs, tab], activeTabId: tab.id }));
+  }, [activeProjectId, createTab, updateWorkspace]);
 
   const handleCloseTab = useCallback((id: string) => {
-    setTabs((prev) => {
-      const idx = prev.findIndex((t) => t.id === id);
-      const next = prev.filter((t) => t.id !== id);
-      if (activeTabId === id) setActiveTabId(next[Math.min(idx, next.length - 1)]?.id ?? null);
-      if (splitTabId === id) setSplitTabId(null);
-      return next;
+    if (!activeProjectId) return;
+    updateWorkspace(activeProjectId, (ws) => {
+      const idx = ws.tabs.findIndex((t) => t.id === id);
+      const next = ws.tabs.filter((t) => t.id !== id);
+      return {
+        ...ws,
+        tabs: next,
+        activeTabId: ws.activeTabId === id ? (next[Math.min(idx, next.length - 1)]?.id ?? null) : ws.activeTabId,
+        splitTabId: ws.splitTabId === id ? null : ws.splitTabId,
+      };
     });
-  }, [activeTabId, splitTabId]);
+  }, [activeProjectId, updateWorkspace]);
 
   const handleSaveFile = useCallback(async () => {
-    if (!activeTab) return;
+    if (!activeTab || !activeProjectId) return;
     let savePath = activeTab.path;
     if (!savePath) {
       try { savePath = await invoke<string | null>("save_file_dialog"); }
@@ -130,57 +195,76 @@ function App() {
     }
     try {
       await invoke("write_file_content", { path: savePath, content: activeTab.content });
-      setTabs((p) => p.map((t) =>
-        t.id === activeTab.id
-          ? { ...t, path: savePath!, title: savePath!.split(/[/\\]/).pop() ?? t.title, dirty: false }
-          : t));
-      if (rootPath) await refreshFileTree(rootPath);
+      updateWorkspace(activeProjectId, (ws) => ({
+        ...ws,
+        tabs: ws.tabs.map((t) =>
+          t.id === activeTab.id
+            ? { ...t, path: savePath!, title: savePath!.split(/[/\\]/).pop() ?? t.title, dirty: false }
+            : t),
+      }));
+      if (rootPath) await refreshProjectTree(activeProjectId, rootPath);
     } catch (err) { console.error(err); }
-  }, [activeTab, rootPath, refreshFileTree]);
+  }, [activeTab, activeProjectId, rootPath, updateWorkspace, refreshProjectTree]);
 
   const handleContentChange = useCallback((content: string) => {
-    if (!activeTabId) return;
-    setTabs((p) => p.map((t) => t.id === activeTabId ? { ...t, content, dirty: true } : t));
-  }, [activeTabId]);
+    if (!activeProjectId || !activeTabId) return;
+    updateWorkspace(activeProjectId, (ws) => ({
+      ...ws,
+      tabs: ws.tabs.map((t) => t.id === activeTabId ? { ...t, content, dirty: true } : t),
+    }));
+  }, [activeProjectId, activeTabId, updateWorkspace]);
 
   const handleSplitContentChange = useCallback((content: string) => {
-    if (!splitTabId) return;
-    setTabs((p) => p.map((t) => t.id === splitTabId ? { ...t, content, dirty: true } : t));
-  }, [splitTabId]);
+    if (!activeProjectId || !splitTabId) return;
+    updateWorkspace(activeProjectId, (ws) => ({
+      ...ws,
+      tabs: ws.tabs.map((t) => t.id === splitTabId ? { ...t, content, dirty: true } : t),
+    }));
+  }, [activeProjectId, splitTabId, updateWorkspace]);
 
-  // ── sidebar resize ───────────────────────────────────────────────────────
+  // ── sidebar resize ────────────────────────────────────────────────────────
   const handleResizeStart = useCallback((e: RMouseEvent) => {
     e.preventDefault(); setResizingSidebar(true);
   }, []);
 
   useEffect(() => {
     if (!resizingSidebar) return;
-    const onMove = (e: MouseEvent) => setSidebarWidth(Math.max(160, Math.min(500, e.clientX - 48)));
+    const onMove = (e: MouseEvent) => setSidebarWidth(Math.max(160, Math.min(500, e.clientX - 52)));
     const onUp = () => setResizingSidebar(false);
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
     return () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
   }, [resizingSidebar]);
 
-  // ── activity bar ─────────────────────────────────────────────────────────
-  const handleActivityClick = useCallback((tab: SidebarTab) => {
-    if (sidebarTab === tab && sidebarVisible) {
+  // ── project bar handlers ─────────────────────────────────────────────────
+  const handleSelectProject = useCallback((id: string) => {
+    if (activeProjectId === id && sidebarTab === "files" && sidebarVisible) {
       setSidebarVisible(false);
     } else {
-      setSidebarTab(tab);
+      setActiveProjectId(id);
+      setSidebarTab("files");
+      setSidebarVisible(true);
+    }
+  }, [activeProjectId, sidebarTab, sidebarVisible]);
+
+  const handleToggleGit = useCallback(() => {
+    if (sidebarTab === "git" && sidebarVisible) {
+      setSidebarVisible(false);
+    } else {
+      setSidebarTab("git");
       setSidebarVisible(true);
     }
   }, [sidebarTab, sidebarVisible]);
 
-  // ── keyboard shortcuts ───────────────────────────────────────────────────
+  // ── keyboard shortcuts ────────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const ctrl = e.ctrlKey || e.metaKey;
     const shift = e.shiftKey;
     const key = e.key.toLowerCase();
     if (ctrl && shift && key === "p") { e.preventDefault(); setShowPalette(true); return; }
     if (ctrl && shift && key === "f") { e.preventDefault(); setShowSearch(true); return; }
-    if (ctrl && shift && key === "g") { e.preventDefault(); handleActivityClick("git"); return; }
-    if (ctrl && shift && key === "e") { e.preventDefault(); handleActivityClick("files"); return; }
+    if (ctrl && shift && key === "g") { e.preventDefault(); handleToggleGit(); return; }
+    if (ctrl && shift && key === "e") { e.preventDefault(); setSidebarTab("files"); setSidebarVisible(true); return; }
     if (ctrl && key === "tab") {
       e.preventDefault();
       if (tabs.length < 2) return;
@@ -191,12 +275,12 @@ function App() {
     if (ctrl && key === "`") { e.preventDefault(); setShowTerminal((v) => !v); return; }
     if (ctrl && key === "\\") {
       e.preventDefault();
-      splitTabId ? setSplitTabId(null) : setSplitTabId(activeTabId);
+      setSplitTabId(splitTabId ? null : activeTabId);
       return;
     }
     if (ctrl) {
       switch (key) {
-        case "o": e.preventDefault(); handleOpenFolder(); break;
+        case "o": e.preventDefault(); handleAddProject(); break;
         case "s": e.preventDefault(); handleSaveFile(); break;
         case "n": e.preventDefault(); handleNewTab(); break;
         case "p": e.preventDefault();
@@ -205,23 +289,24 @@ function App() {
         case "w": e.preventDefault(); activeTabId && handleCloseTab(activeTabId); break;
       }
     }
-  }, [tabs, activeTabId, splitTabId, handleOpenFolder, handleSaveFile,
-      handleNewTab, handleCloseTab, openFileInTab, handleActivityClick]);
+  }, [tabs, activeTabId, splitTabId, handleAddProject, handleSaveFile,
+      handleNewTab, handleCloseTab, openFileInTab, handleToggleGit,
+      setActiveTabId, setSplitTabId]);
 
   useEffect(() => { document.documentElement.classList.toggle("light", !dark); }, [dark]);
 
-  // ── command palette entries ──────────────────────────────────────────────
+  // ── command palette entries ───────────────────────────────────────────────
   const commands = [
-    { id: "open-folder", label: "Open Folder", shortcut: "Ctrl+O", action: handleOpenFolder },
+    { id: "open-folder", label: "Add Project Folder", shortcut: "Ctrl+O", action: handleAddProject },
     { id: "save", label: "Save File", shortcut: "Ctrl+S", action: handleSaveFile },
     { id: "new-tab", label: "New Tab", shortcut: "Ctrl+N", action: handleNewTab },
     { id: "close-tab", label: "Close Tab", shortcut: "Ctrl+W", action: () => activeTabId && handleCloseTab(activeTabId) },
     { id: "search", label: "Search in Files", shortcut: "Ctrl+Shift+F", action: () => setShowSearch(true) },
     { id: "toggle-theme", label: "Toggle Dark/Light Theme", action: () => setDark((d) => !d) },
-    { id: "split-editor", label: "Split Editor", shortcut: "Ctrl+\\", action: () => splitTabId ? setSplitTabId(null) : setSplitTabId(activeTabId) },
+    { id: "split-editor", label: "Split Editor", shortcut: "Ctrl+\\", action: () => setSplitTabId(splitTabId ? null : activeTabId) },
     { id: "toggle-minimap", label: "Toggle Minimap", action: () => setShowMinimap((v) => !v) },
     { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => setShowTerminal((v) => !v) },
-    { id: "git-panel", label: "Source Control", shortcut: "Ctrl+Shift+G", action: () => handleActivityClick("git") },
+    { id: "git-panel", label: "Source Control", shortcut: "Ctrl+Shift+G", action: handleToggleGit },
   ];
 
   // ── render ────────────────────────────────────────────────────────────────
@@ -232,10 +317,15 @@ function App() {
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
-      {/* Activity bar */}
-      <ActivityBar
-        activeTab={sidebarVisible ? sidebarTab : null}
-        onTabClick={handleActivityClick}
+      {/* Project bar */}
+      <ProjectBar
+        projects={projects}
+        activeProjectId={activeProjectId}
+        sidebarTab={sidebarVisible ? sidebarTab : null}
+        onSelectProject={handleSelectProject}
+        onCloseProject={handleCloseProject}
+        onAddProject={handleAddProject}
+        onToggleGit={handleToggleGit}
       />
 
       {/* Sidebar */}
@@ -246,23 +336,30 @@ function App() {
               <span className="sidebar-header-title">
                 {sidebarTab === "files" ? "Explorer" : sidebarTab === "git" ? "Source Control" : "Files"}
               </span>
-              {sidebarTab === "files" && (
-                <button className="sidebar-header-btn" onClick={handleOpenFolder} title="Open Folder">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 5v14M5 12h14"/>
-                  </svg>
-                </button>
+              {sidebarTab === "files" && activeProject && (
+                <span className="sidebar-header-project">{activeProject.name}</span>
               )}
             </div>
+
             {sidebarTab === "files" && (
-              <FileTree
-                rootPath={rootPath}
-                tree={fileTree}
-                onOpenFile={(p) => { openFileInTab(p); }}
-                onDeleteEntry={handleDeleteEntry}
-                onRenameEntry={handleRenameEntry}
-              />
+              activeProject ? (
+                <FileTree
+                  rootPath={rootPath}
+                  tree={fileTree}
+                  onOpenFile={openFileInTab}
+                  onDeleteEntry={handleDeleteEntry}
+                  onRenameEntry={handleRenameEntry}
+                />
+              ) : (
+                <div className="project-empty-state">
+                  <p>No folder opened</p>
+                  <button className="project-open-btn" onClick={handleAddProject}>
+                    Open Folder
+                  </button>
+                </div>
+              )
             )}
+
             {sidebarTab === "git" && <GitPanel rootPath={rootPath} />}
           </div>
           <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
@@ -311,14 +408,24 @@ function App() {
           </div>
         )}
 
-        {/* Terminal */}
-        {showTerminal && (
-          <TerminalContainer
-            cwd={rootPath}
-            visible={showTerminal}
-            onToggleVisible={() => setShowTerminal(false)}
-          />
-        )}
+        {/* Per-project terminals — always mounted so PTY processes and pane
+            tree survive project switches and panel close/reopen.
+            CSS display:none hides from layout without unmounting. */}
+        {projects.map((p) => {
+          const active = showTerminal && p.id === activeProjectId;
+          return (
+            <div
+              key={`tc-${p.id}`}
+              style={active ? { display: "contents" } : { display: "none" }}
+            >
+              <TerminalContainer
+                cwd={p.path}
+                visible={active}
+                onToggleVisible={() => setShowTerminal(false)}
+              />
+            </div>
+          );
+        })}
 
         {/* Quick action bar */}
         <div className="action-bar">
@@ -328,7 +435,7 @@ function App() {
               : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             }
           </button>
-          <button className="action-btn" onClick={() => splitTabId ? setSplitTabId(null) : setSplitTabId(activeTabId)} title="Split Editor (Ctrl+\)">
+          <button className="action-btn" onClick={() => setSplitTabId(splitTabId ? null : activeTabId)} title="Split Editor (Ctrl+\)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>
             </svg>
