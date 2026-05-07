@@ -466,6 +466,7 @@ function App() {
               style={active ? { display: "contents" } : { display: "none" }}
             >
               <TerminalContainer
+                projectId={p.id}
                 cwd={p.path}
                 visible={active}
                 fullscreen

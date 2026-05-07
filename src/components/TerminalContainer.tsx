@@ -4,6 +4,7 @@ import React, {
   useRef,
   useLayoutEffect,
   useMemo,
+  useEffect,
   type MouseEvent as RMouseEvent,
 } from "react";
 import { TerminalPanel } from "./TerminalPanel";
@@ -44,6 +45,23 @@ interface DividerLayout {
   dir: "row" | "col";
   rect: PixelRect;
   splitRect: PixelRect;
+}
+
+// ── Persistence ───────────────────────────────────────────────────────────
+
+interface PersistedTerminalLayout {
+  root: PaneNode;
+  activeId: string;
+  height: number;
+  nameCounter: number;
+}
+
+const terminalStorageKey = (pid: string) => `tertito_terminal_${pid}`;
+
+function seedNodeCounter(node: PaneNode): void {
+  const n = parseInt(node.id.replace(/^(term_|split_)/, ""));
+  if (!isNaN(n) && n > nodeCounter) nodeCounter = n;
+  if (node.type === "split") { seedNodeCounter(node.a); seedNodeCounter(node.b); }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -132,22 +150,33 @@ function computeLayout(
 // ── TerminalContainer ──────────────────────────────────────────────────────
 
 interface TerminalContainerProps {
+  projectId: string;
   cwd: string | null;
   visible: boolean;
   fullscreen?: boolean;
   onToggleVisible: () => void;
 }
 
-export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }: TerminalContainerProps) {
-  const mountRef = useRef<{ root: PaneNode; activeId: string } | null>(null);
+export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggleVisible }: TerminalContainerProps) {
+  const mountRef = useRef<{ root: PaneNode; activeId: string; nameCounter: number; height: number } | null>(null);
   if (mountRef.current === null) {
-    const id = `term_${++nodeCounter}`;
-    mountRef.current = { root: { type: "leaf", id, name: "PowerShell 1", shell: "powershell" }, activeId: id };
+    const saved = localStorage.getItem(terminalStorageKey(projectId));
+    if (saved) {
+      try {
+        const parsed: PersistedTerminalLayout = JSON.parse(saved);
+        seedNodeCounter(parsed.root);
+        mountRef.current = { root: parsed.root, activeId: parsed.activeId, nameCounter: parsed.nameCounter, height: parsed.height };
+      } catch { /* fall through */ }
+    }
+    if (mountRef.current === null) {
+      const id = `term_${++nodeCounter}`;
+      mountRef.current = { root: { type: "leaf", id, name: "PowerShell 1", shell: "powershell" }, activeId: id, nameCounter: 1, height: 260 };
+    }
   }
-  const instCounter = useRef(1);
+  const instCounter = useRef(mountRef.current.nameCounter);
   const [root, setRoot] = useState<PaneNode>(mountRef.current.root);
   const [activeId, setActiveId] = useState<string>(mountRef.current.activeId);
-  const [height, setHeight] = useState(260);
+  const [height, setHeight] = useState(mountRef.current.height);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -233,6 +262,17 @@ export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }:
   const handleRatioChange = useCallback((splitId: string, ratio: number) => {
     setRoot((prev) => doUpdateRatio(prev, splitId, ratio));
   }, []);
+
+  // ── Persist layout ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const state: PersistedTerminalLayout = {
+      root,
+      activeId,
+      height,
+      nameCounter: instCounter.current,
+    };
+    localStorage.setItem(terminalStorageKey(projectId), JSON.stringify(state));
+  }, [root, activeId, height, projectId]);
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
