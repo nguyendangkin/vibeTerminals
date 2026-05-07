@@ -27,6 +27,8 @@ function App() {
   const [showMinimap, setShowMinimap] = useState(true);
   const [showTerminal, setShowTerminal] = useState(false);
   const [terminalHeight, setTerminalHeight] = useState(250);
+  const [terminalSplitCount, setTerminalSplitCount] = useState(1); // 1 or 2
+  const [terminalSplitRatio, setTerminalSplitRatio] = useState(0.5); // left pane fraction
   const [sidebarTab, setSidebarTab] = useState<"files" | "git">("files");
   const [gitBranch, setGitBranch] = useState<string>("");
   const [terminalShell, setTerminalShell] = useState<string>(
@@ -38,6 +40,7 @@ function App() {
 
   const shellRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const splitContainerRef = useRef<HTMLDivElement>(null);
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [resizing, setResizing] = useState(false);
 
@@ -218,6 +221,11 @@ function App() {
     setSplitTabId(null);
   }, []);
 
+  // Terminal split toggle
+  const handleTerminalSplitToggle = useCallback(() => {
+    setTerminalSplitCount((prev) => (prev === 1 ? 2 : 1));
+  }, []);
+
   // Sidebar resize
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -253,6 +261,7 @@ function App() {
     { id: "split-editor", label: "Split Editor", shortcut: "Ctrl+\\", action: splitTabId ? handleSplitClose : handleSplitOpen },
     { id: "toggle-minimap", label: "Toggle Minimap", action: () => setShowMinimap(!showMinimap) },
     { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => setShowTerminal(!showTerminal) },
+    { id: "split-terminal", label: "Split Terminal", action: handleTerminalSplitToggle },
     { id: "git-panel", label: "Source Control", shortcut: "Ctrl+Shift+G", action: () => setSidebarTab(sidebarTab === "git" ? "files" : "git") },
   ];
 
@@ -268,6 +277,7 @@ function App() {
     if (ctrl && key === "tab") { e.preventDefault(); shift ? handlePrevTab() : handleNextTab(); return; }
     if (ctrl && key === "\\") { e.preventDefault(); splitTabId ? handleSplitClose() : handleSplitOpen(); return; }
     if (ctrl && key === "`") { e.preventDefault(); setShowTerminal(!showTerminal); return; }
+    if (ctrl && shift && key === "`") { e.preventDefault(); handleTerminalSplitToggle(); return; }
     if (ctrl) {
       switch (key) {
         case "o": e.preventDefault(); handleOpenFolder(); break;
@@ -278,7 +288,8 @@ function App() {
       }
     }
   }, [handleOpenFolder, handleSaveFile, handleNewTab, handleOpenFileDialog,
-      handleCloseActiveTab, handleNextTab, handlePrevTab, splitTabId, handleSplitClose, handleSplitOpen, dark]);
+      handleCloseActiveTab, handleNextTab, handlePrevTab, splitTabId, handleSplitClose, handleSplitOpen,
+      dark, showTerminal, sidebarTab, handleTerminalSplitToggle]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", !dark);
@@ -384,7 +395,8 @@ function App() {
                 const startY = e.clientY;
                 const startH = terminalHeight;
                 const handleMouseMove = (ev: MouseEvent) => {
-                  const newH = Math.max(100, Math.min(600, startH + (startY - ev.clientY)));
+                  const maxH = window.innerHeight - 28;
+                  const newH = Math.max(100, Math.min(maxH, startH + (startY - ev.clientY)));
                   setTerminalHeight(newH);
                 };
                 const handleMouseUp = () => {
@@ -397,7 +409,9 @@ function App() {
             />
             <div className="terminal-panel" style={{ height: terminalHeight }}>
               <div className="terminal-header">
-                <span className="terminal-header-title">Terminal</span>
+                <span className="terminal-header-title">
+                  Terminal{terminalSplitCount > 1 ? " (split)" : ""}
+                </span>
                 <select
                   className="terminal-shell-select"
                   value={terminalShell}
@@ -413,6 +427,13 @@ function App() {
                   <option value="pwsh">PowerShell Core</option>
                 </select>
                 <button
+                  className="terminal-split-btn"
+                  onClick={handleTerminalSplitToggle}
+                  title={terminalSplitCount === 1 ? "Split Terminal (Ctrl+Shift+`)" : "Unsplit Terminal (Ctrl+Shift+`)"}
+                >
+                  {terminalSplitCount === 1 ? "▦" : "▢"}
+                </button>
+                <button
                   className="terminal-close-btn"
                   onClick={() => setShowTerminal(false)}
                   title="Close Terminal"
@@ -420,7 +441,49 @@ function App() {
                   ×
                 </button>
               </div>
-              <TerminalPanel cwd={rootPath} visible={showTerminal} shell={terminalShell || undefined} />
+              <div className="terminal-split-container" ref={splitContainerRef}>
+                  <div
+                    className={terminalSplitCount === 2 ? "terminal-split-pane" : "terminal-split-pane-full"}
+                    style={terminalSplitCount === 2 ? { flex: `0 0 ${terminalSplitRatio * 100}%` } : undefined}
+                  >
+                    {terminalSplitCount === 2 && <div className="terminal-split-pane-label">Terminal 1</div>}
+                    <TerminalPanel key="term-1" cwd={rootPath} visible={showTerminal} shell={terminalShell || undefined} />
+                  </div>
+                  {terminalSplitCount === 2 && (
+                    <>
+                      <div
+                        className="terminal-split-divider"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const container = splitContainerRef.current;
+                          if (!container) return;
+                          const startX = e.clientX;
+                          const startRatio = terminalSplitRatio;
+                          const rect = container.getBoundingClientRect();
+                          const containerWidth = rect.width;
+                          const handleMouseMove = (ev: MouseEvent) => {
+                            const dx = ev.clientX - startX;
+                            const newRatio = Math.max(0.2, Math.min(0.8, startRatio + dx / containerWidth));
+                            setTerminalSplitRatio(newRatio);
+                          };
+                          const handleMouseUp = () => {
+                            document.removeEventListener("mousemove", handleMouseMove);
+                            document.removeEventListener("mouseup", handleMouseUp);
+                          };
+                          document.addEventListener("mousemove", handleMouseMove);
+                          document.addEventListener("mouseup", handleMouseUp);
+                        }}
+                      />
+                      <div
+                        className="terminal-split-pane"
+                        style={{ flex: `0 0 ${(1 - terminalSplitRatio) * 100}%` }}
+                      >
+                        <div className="terminal-split-pane-label">Terminal 2</div>
+                        <TerminalPanel key="term-2" cwd={rootPath} visible={showTerminal} shell={terminalShell || undefined} />
+                      </div>
+                    </>
+                  )}
+                </div>
             </div>
           </>
         )}

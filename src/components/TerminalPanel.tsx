@@ -182,7 +182,7 @@ export function TerminalPanel({ cwd, visible, shell }: TerminalPanelProps) {
     <div
       ref={containerRef}
       className="terminal-container"
-      style={{ width: "100%", height: "100%", display: visible ? "block" : "none" }}
+      style={{ display: visible ? "block" : "none" }}
     />
   );
 }
