@@ -236,6 +236,7 @@ pub fn run() {
             git::git_has_repo,
             git::git_ahead_behind,
             git::git_discard,
+            git::git_log_graph,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

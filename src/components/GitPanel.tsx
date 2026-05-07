@@ -41,6 +41,49 @@ function dirname(p: string) {
   return idx > 0 ? p.slice(0, idx) : "";
 }
 
+type PanelTab = "changes" | "history";
+
+// ── Graph parsing ─────────────────────────────────────────────────────────
+interface CommitRow {
+  type: "commit";
+  graph: string;
+  hash: string;
+  subject: string;
+  author: string;
+  date: string;
+  refs: string[];
+}
+interface ConnectorRow { type: "connector"; raw: string; }
+type GraphRow = CommitRow | ConnectorRow;
+
+function parseGraph(raw: string): GraphRow[] {
+  return raw.split("\n").map((line): GraphRow => {
+    const sep = "\x1f";
+    const i = line.indexOf(sep);
+    if (i === -1) return { type: "connector", raw: line };
+    const before = line.slice(0, i);
+    const hashMatch = before.match(/([0-9a-f]{7,40})$/);
+    if (!hashMatch) return { type: "connector", raw: line };
+    const hash = hashMatch[1].slice(0, 7);
+    const graph = before.slice(0, before.length - hashMatch[1].length);
+    const fields = line.slice(i + 1).split(sep);
+    const [subject = "", author = "", date = "", refsRaw = ""] = fields;
+    const refs = refsRaw.split(",").map(r => r.trim()).filter(Boolean);
+    return { type: "commit", graph, hash, subject, author, date, refs };
+  }).filter(r => r.type === "commit" || (r as ConnectorRow).raw !== "");
+}
+
+function RefChip({ label }: { label: string }) {
+  let cls = "git-ref";
+  if (label === "HEAD") cls += " git-ref-head-ptr";
+  else if (label.startsWith("HEAD -> ")) cls += " git-ref-local";
+  else if (label.startsWith("tag: ")) cls += " git-ref-tag";
+  else if (label.includes("/")) cls += " git-ref-remote";
+  else cls += " git-ref-local";
+  const display = label.replace("HEAD -> ", "").replace("tag: ", "");
+  return <span className={cls} title={label}>{display}</span>;
+}
+
 export function GitPanel({ rootPath }: GitPanelProps) {
   const [isRepo, setIsRepo] = useState(false);
   const [entries, setEntries] = useState<GitStatusEntry[]>([]);
@@ -52,6 +95,8 @@ export function GitPanel({ rootPath }: GitPanelProps) {
   const [diffLines, setDiffLines] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ text: string; error: boolean } | null>(null);
+  const [tab, setTab] = useState<PanelTab>("changes");
+  const [graphRows, setGraphRows] = useState<GraphRow[]>([]);
 
   const toast = (text: string, error = false) => setMsg({ text, error });
 
@@ -75,6 +120,18 @@ export function GitPanel({ rootPath }: GitPanelProps) {
   }, [rootPath]);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  const loadGraph = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const raw = await invoke<string>("git_log_graph", { repoPath: rootPath, maxCount: 150 });
+      setGraphRows(raw ? parseGraph(raw) : []);
+    } catch { setGraphRows([]); }
+  }, [rootPath]);
+
+  useEffect(() => {
+    if (tab === "history" && isRepo) loadGraph();
+  }, [tab, isRepo, loadGraph]);
 
   const run = useCallback(async (fn: () => Promise<void>) => {
     setLoading(true);
@@ -173,7 +230,19 @@ export function GitPanel({ rootPath }: GitPanelProps) {
   return (
     <div className="git-panel">
 
-      {/* ── Branch & remote ───────────────────────────────────── */}
+      {/* ── Tab switcher ──────────────────────────────────────── */}
+      <div className="git-tab-bar">
+        <button
+          className={`git-tab${tab === "changes" ? " git-tab-active" : ""}`}
+          onClick={() => setTab("changes")}
+        >Changes</button>
+        <button
+          className={`git-tab${tab === "history" ? " git-tab-active" : ""}`}
+          onClick={() => setTab("history")}
+        >History</button>
+      </div>
+
+      {/* ── Branch & remote (always visible) ─────────────────── */}
       <div className="git-section">
         <div className="git-branch-row">
           <span className="git-branch-icon">⎇</span>
@@ -201,103 +270,149 @@ export function GitPanel({ rootPath }: GitPanelProps) {
         </div>
       </div>
 
-      {/* ── Commit ────────────────────────────────────────────── */}
-      <div className="git-section">
-        <textarea
-          className="git-commit-input"
-          placeholder="Message (Ctrl+Enter to commit)"
-          value={commitMsg}
-          onChange={e => setCommitMsg(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commit(); }
-          }}
-          rows={3}
-        />
-        <button
-          className="git-btn git-btn-commit"
-          disabled={loading || !commitMsg.trim() || staged.length === 0}
-          onClick={commit}
-        >
-          Commit to {branch || "HEAD"}
-        </button>
-      </div>
-
-      {/* ── Staged changes ────────────────────────────────────── */}
-      <div className="git-section">
-        <div className="git-section-header">
-          <span className="git-section-title">Staged Changes ({staged.length})</span>
-          {staged.length > 0 && (
-            <button className="git-hdr-btn" title="Unstage All" onClick={unstageAll}>↩ All</button>
-          )}
-        </div>
-        {staged.length === 0
-          ? <div className="git-section-empty">No staged changes</div>
-          : staged.map(e => (
-            <div
-              key={`s-${e.path}`}
-              className={`git-file-row${selected?.path === e.path && selected.staged ? " git-file-selected" : ""}`}
-              onClick={() => showDiff(e.path, true)}
+      {/* ══ CHANGES TAB ═══════════════════════════════════════ */}
+      {tab === "changes" && (
+        <>
+          {/* Commit */}
+          <div className="git-section">
+            <textarea
+              className="git-commit-input"
+              placeholder="Message (Ctrl+Enter to commit)"
+              value={commitMsg}
+              onChange={e => setCommitMsg(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commit(); }
+              }}
+              rows={3}
+            />
+            <button
+              className="git-btn git-btn-commit"
+              disabled={loading || !commitMsg.trim() || staged.length === 0}
+              onClick={commit}
             >
-              <span className={`git-badge ${STATUS_CLS[e.status] ?? ""}`}>{STATUS_LABEL[e.status] ?? e.status}</span>
-              <span className="git-file-name" title={e.path}>{basename(e.path)}</span>
-              {dirname(e.path) && <span className="git-file-dir">{dirname(e.path)}</span>}
-              <div className="git-file-btns">
-                <button className="git-icon-btn" title="Unstage" onClick={ev => { ev.stopPropagation(); unstage(e.path); }}>↩</button>
-              </div>
-            </div>
-          ))
-        }
-      </div>
-
-      {/* ── Unstaged changes ──────────────────────────────────── */}
-      <div className="git-section">
-        <div className="git-section-header">
-          <span className="git-section-title">Changes ({unstaged.length})</span>
-          {unstaged.length > 0 && (
-            <button className="git-hdr-btn" title="Stage All" onClick={stageAll}>+ All</button>
-          )}
-        </div>
-        {unstaged.length === 0
-          ? <div className="git-section-empty">No changes</div>
-          : unstaged.map(e => (
-            <div
-              key={`u-${e.path}`}
-              className={`git-file-row${selected?.path === e.path && !selected.staged ? " git-file-selected" : ""}`}
-              onClick={() => showDiff(e.path, false)}
-            >
-              <span className={`git-badge ${STATUS_CLS[e.status] ?? ""}`}>{STATUS_LABEL[e.status] ?? e.status}</span>
-              <span className="git-file-name" title={e.path}>{basename(e.path)}</span>
-              {dirname(e.path) && <span className="git-file-dir">{dirname(e.path)}</span>}
-              <div className="git-file-btns">
-                <button
-                  className="git-icon-btn git-icon-btn-danger"
-                  title="Discard Changes"
-                  onClick={ev => { ev.stopPropagation(); discard(e.path, e.status === "??"); }}
-                >↺</button>
-                <button className="git-icon-btn" title="Stage" onClick={ev => { ev.stopPropagation(); stage(e.path); }}>+</button>
-              </div>
-            </div>
-          ))
-        }
-      </div>
-
-      {/* ── Diff view ─────────────────────────────────────────── */}
-      {selected && (
-        <div className="git-section">
-          <div className="git-section-header">
-            <span className="git-section-title">
-              {basename(selected.path)} · {selected.staged ? "staged" : "working tree"}
-            </span>
-            <button className="git-hdr-btn" onClick={() => { setSelected(null); setDiffLines([]); }}>✕</button>
+              Commit to {branch || "HEAD"}
+            </button>
           </div>
-          <div className="git-diff-view">
-            {diffLines.map((line, i) => {
-              let cls = "git-diff-line";
-              if (line.startsWith("+") && !line.startsWith("+++")) cls += " git-diff-add";
-              else if (line.startsWith("-") && !line.startsWith("---")) cls += " git-diff-del";
-              else if (line.startsWith("@@")) cls += " git-diff-hunk";
-              return <div key={i} className={cls}>{line || "\u00A0"}</div>;
-            })}
+
+          {/* Staged */}
+          <div className="git-section">
+            <div className="git-section-header">
+              <span className="git-section-title">Staged Changes ({staged.length})</span>
+              {staged.length > 0 && (
+                <button className="git-hdr-btn" title="Unstage All" onClick={unstageAll}>↩ All</button>
+              )}
+            </div>
+            {staged.length === 0
+              ? <div className="git-section-empty">No staged changes</div>
+              : staged.map(e => (
+                <div
+                  key={`s-${e.path}`}
+                  className={`git-file-row${selected?.path === e.path && selected.staged ? " git-file-selected" : ""}`}
+                  onClick={() => showDiff(e.path, true)}
+                >
+                  <span className={`git-badge ${STATUS_CLS[e.status] ?? ""}`}>{STATUS_LABEL[e.status] ?? e.status}</span>
+                  <span className="git-file-name" title={e.path}>{basename(e.path)}</span>
+                  {dirname(e.path) && <span className="git-file-dir">{dirname(e.path)}</span>}
+                  <div className="git-file-btns">
+                    <button className="git-icon-btn" title="Unstage" onClick={ev => { ev.stopPropagation(); unstage(e.path); }}>↩</button>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+
+          {/* Unstaged */}
+          <div className="git-section">
+            <div className="git-section-header">
+              <span className="git-section-title">Changes ({unstaged.length})</span>
+              {unstaged.length > 0 && (
+                <button className="git-hdr-btn" title="Stage All" onClick={stageAll}>+ All</button>
+              )}
+            </div>
+            {unstaged.length === 0
+              ? <div className="git-section-empty">No changes</div>
+              : unstaged.map(e => (
+                <div
+                  key={`u-${e.path}`}
+                  className={`git-file-row${selected?.path === e.path && !selected.staged ? " git-file-selected" : ""}`}
+                  onClick={() => showDiff(e.path, false)}
+                >
+                  <span className={`git-badge ${STATUS_CLS[e.status] ?? ""}`}>{STATUS_LABEL[e.status] ?? e.status}</span>
+                  <span className="git-file-name" title={e.path}>{basename(e.path)}</span>
+                  {dirname(e.path) && <span className="git-file-dir">{dirname(e.path)}</span>}
+                  <div className="git-file-btns">
+                    <button
+                      className="git-icon-btn git-icon-btn-danger"
+                      title="Discard Changes"
+                      onClick={ev => { ev.stopPropagation(); discard(e.path, e.status === "??"); }}
+                    >↺</button>
+                    <button className="git-icon-btn" title="Stage" onClick={ev => { ev.stopPropagation(); stage(e.path); }}>+</button>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+
+          {/* Diff */}
+          {selected && (
+            <div className="git-section">
+              <div className="git-section-header">
+                <span className="git-section-title">
+                  {basename(selected.path)} · {selected.staged ? "staged" : "working tree"}
+                </span>
+                <button className="git-hdr-btn" onClick={() => { setSelected(null); setDiffLines([]); }}>✕</button>
+              </div>
+              <div className="git-diff-view">
+                {diffLines.map((line, i) => {
+                  let cls = "git-diff-line";
+                  if (line.startsWith("+") && !line.startsWith("+++")) cls += " git-diff-add";
+                  else if (line.startsWith("-") && !line.startsWith("---")) cls += " git-diff-del";
+                  else if (line.startsWith("@@")) cls += " git-diff-hunk";
+                  return <div key={i} className={cls}>{line || "\u00A0"}</div>;
+                })}
+              </div>
+            </div>
+          )}
+
+          {entries.length === 0 && !loading && (
+            <div className="git-clean">Working tree clean</div>
+          )}
+        </>
+      )}
+
+      {/* ══ HISTORY TAB ═══════════════════════════════════════ */}
+      {tab === "history" && (
+        <div className="git-graph-wrap">
+          <div className="git-graph-toolbar">
+            <span className="git-section-title">History</span>
+            <button className="git-hdr-btn" onClick={loadGraph}>↻</button>
+          </div>
+          <div className="git-graph-view">
+            {graphRows.length === 0
+              ? <div className="git-section-empty">No commits yet</div>
+              : graphRows.map((row, i) => {
+                  if (row.type === "connector") {
+                    return (
+                      <div key={i} className="git-graph-connector">
+                        {row.raw || "\u00A0"}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={i} className="git-graph-commit-row">
+                      <span className="git-graph-prefix">{row.graph}</span>
+                      <span className="git-graph-hash">{row.hash}</span>
+                      {row.refs.length > 0 && (
+                        <span className="git-graph-refs">
+                          {row.refs.map(r => <RefChip key={r} label={r} />)}
+                        </span>
+                      )}
+                      <span className="git-graph-subject" title={row.subject}>{row.subject}</span>
+                      <span className="git-graph-meta">{row.author} · {row.date}</span>
+                    </div>
+                  );
+                })
+            }
           </div>
         </div>
       )}
@@ -307,10 +422,6 @@ export function GitPanel({ rootPath }: GitPanelProps) {
         <div className={`git-message${msg.error ? " git-message-error" : ""}`} onClick={() => setMsg(null)}>
           {msg.text}
         </div>
-      )}
-
-      {entries.length === 0 && !loading && (
-        <div className="git-clean">Working tree clean</div>
       )}
     </div>
   );

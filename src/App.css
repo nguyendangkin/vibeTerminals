@@ -1238,6 +1238,144 @@ body,
 
 .git-message-error { color: #f14c4c; }
 
+/* Tab bar */
+.git-tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.git-tab {
+  flex: 1;
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+  transition: color 0.1s, border-color 0.1s;
+}
+
+.git-tab:hover { color: var(--text-primary); }
+.git-tab-active { color: var(--text-primary); border-bottom-color: var(--accent); }
+
+/* Graph / History view */
+.git-graph-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.git-graph-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.git-graph-view {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  background: var(--bg-primary);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+/* Commit row */
+.git-graph-commit-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 0;
+  min-height: 22px;
+  cursor: default;
+}
+
+.git-graph-commit-row:hover { background: var(--tree-hover); }
+
+.git-graph-prefix {
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 11px;
+  color: #4d5566;
+  white-space: pre;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.git-graph-hash {
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 10px;
+  color: #6e9ecf;
+  flex-shrink: 0;
+  letter-spacing: 0.3px;
+  min-width: 52px;
+}
+
+.git-graph-refs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.git-ref {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 14px;
+}
+
+.git-ref-head-ptr { color: #f97583; background: rgba(249, 117, 131, 0.18); }
+.git-ref-local    { color: #73c991; background: rgba(115, 201, 145, 0.15); }
+.git-ref-remote   { color: #d4a72c; background: rgba(212, 167, 44, 0.14); }
+.git-ref-tag      { color: #e3b341; background: rgba(227, 179, 65, 0.15); }
+
+.git-graph-subject {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.git-graph-meta {
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-right: 6px;
+}
+
+/* Connector lines (|, /, \) */
+.git-graph-connector {
+  font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 11px;
+  color: #3a4150;
+  white-space: pre;
+  padding: 0;
+  line-height: 12px;
+}
+
 /* Status bar git branch */
 .status-git-branch {
   font-weight: 600;

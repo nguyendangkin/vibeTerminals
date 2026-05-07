@@ -275,6 +275,23 @@ pub fn git_ahead_behind(repo_path: String) -> Result<AheadBehind, String> {
 }
 
 #[tauri::command]
+pub fn git_log_graph(repo_path: String, max_count: Option<usize>) -> Result<String, String> {
+    let count = max_count.unwrap_or(150).to_string();
+    // Each commit line: <graph chars><hash>\x1f<subject>\x1f<author>\x1f<relative date>\x1f<refs>
+    // Connector lines (|, \, /) have no \x1f and are left as-is
+    run_git(
+        &repo_path,
+        &[
+            "log",
+            "--graph",
+            "--format=%h%x1f%s%x1f%an%x1f%ar%x1f%D",
+            "--all",
+            &format!("--max-count={}", count),
+        ],
+    )
+}
+
+#[tauri::command]
 pub fn git_discard(repo_path: String, file_path: String, untracked: bool) -> Result<(), String> {
     if untracked {
         run_git(&repo_path, &["clean", "-f", "--", &file_path]).map(|_| ())
