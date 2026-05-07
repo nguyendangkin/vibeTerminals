@@ -9,7 +9,7 @@ use terminal::TerminalManager;
 
 #[derive(Debug, Serialize, Clone)]
 struct DirEntry {
-    name: String,
+    name: String, 
     path: String,
     is_dir: bool,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -31,6 +31,14 @@ fn read_clipboard() -> Result<String, String> {
     arboard::Clipboard::new()
         .map_err(|e| e.to_string())?
         .get_text()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn write_clipboard(text: String) -> Result<(), String> {
+    arboard::Clipboard::new()
+        .map_err(|e| e.to_string())?
+        .set_text(text)
         .map_err(|e| e.to_string())
 }
 
@@ -210,6 +218,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             read_clipboard,
+            write_clipboard,
             read_file_content,
             write_file_content,
             delete_file,

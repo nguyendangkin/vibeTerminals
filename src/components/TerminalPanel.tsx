@@ -127,6 +127,23 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onCon
     };
     el.addEventListener("contextmenu", handleCtxMenu);
 
+    const handlePaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    el.addEventListener("paste", handlePaste, true);
+
+    const handleMiddleClick = (e: MouseEvent) => {
+      if (e.button === 1) {
+        const selected = term.getSelection();
+        if (selected) {
+          e.preventDefault();
+          invoke("write_clipboard", { text: selected }).catch(() => {});
+        }
+      }
+    };
+    el.addEventListener("mousedown", handleMiddleClick);
+
     const encoder = new TextEncoder();
     term.onData((data) => {
       const id = termIdRef.current;
@@ -188,6 +205,8 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onCon
     return () => {
       cancelled = true;
       el.removeEventListener("contextmenu", handleCtxMenu);
+      el.removeEventListener("paste", handlePaste, true);
+      el.removeEventListener("mousedown", handleMiddleClick);
       unlistenOutRef.current?.();
       unlistenExitRef.current?.();
       const id = termIdRef.current;
