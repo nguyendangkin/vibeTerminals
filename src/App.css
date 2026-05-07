@@ -53,9 +53,54 @@ body,
   outline: none;
 }
 
-.app-shell.resizing {
+.app-shell.app-resizing {
   cursor: col-resize;
   user-select: none;
+}
+
+/* ─── Activity Bar ───────────────────────────────────────────────────────── */
+.activity-bar {
+  width: 48px;
+  min-width: 48px;
+  background: #181818;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+  gap: 2px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+:root.light .activity-bar {
+  background: #2c2c2c;
+}
+
+.activity-btn {
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: none;
+  color: #858585;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  transition: color 0.1s, background 0.1s;
+}
+
+.activity-btn:hover {
+  color: #cccccc;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.activity-btn-active {
+  color: #ffffff;
+  border-left-color: var(--accent);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 /* Sidebar tabs */
@@ -105,14 +150,22 @@ body,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 0 8px 0 12px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
   min-height: 35px;
+  flex-shrink: 0;
+}
+
+.sidebar-header-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-header-btn {
@@ -140,7 +193,7 @@ body,
 }
 
 .sidebar-resize-handle:hover,
-.app-shell.resizing .sidebar-resize-handle {
+.app-shell.app-resizing .sidebar-resize-handle {
   background: var(--accent);
 }
 
@@ -682,45 +735,99 @@ body,
   background: rgba(128, 128, 128, 0.2);
 }
 
-/* Terminal split layout */
-.terminal-split-container {
+/* Terminal layout (tree-based, recursive splits) */
+.terminal-layout {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
-.terminal-split-pane {
+/* Terminal group – arranges children in row or column */
+.terminal-group {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.terminal-group-row {
+  flex-direction: row;
+}
+
+.terminal-group-column {
+  flex-direction: column;
+}
+
+/* Terminal pane – the actual terminal wrapper */
+.terminal-pane {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border: 2px solid transparent;
+  transition: border-color 0.15s;
+  min-width: 0;
+  min-height: 0;
 }
 
-.terminal-split-divider {
-  width: 4px;
-  cursor: col-resize;
-  background: var(--border-color);
-  flex-shrink: 0;
-  transition: background 0.15s;
+.terminal-pane.active {
+  border-color: var(--accent);
 }
 
-.terminal-split-divider:hover {
-  background: var(--accent);
-}
-
-.terminal-split-pane-label {
+/* Terminal pane mini-header with close button */
+.terminal-pane-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 1px 8px;
   font-size: 10px;
   color: var(--text-secondary);
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
+  min-height: 20px;
+  user-select: none;
 }
 
-.terminal-split-pane-full {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+.terminal-pane-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  border-radius: 3px;
+  line-height: 1;
+  visibility: hidden;
+}
+
+.terminal-pane-label:hover .terminal-pane-close-btn,
+.terminal-pane.active .terminal-pane-close-btn {
+  visibility: visible;
+}
+
+.terminal-pane-close-btn:hover {
+  color: var(--text-primary);
+  background: rgba(128, 128, 128, 0.2);
+}
+
+/* Terminal divider – draggable resize handle */
+.terminal-divider {
+  flex-shrink: 0;
+  background: var(--border-color);
+  transition: background 0.15s;
+}
+
+.terminal-divider-row {
+  width: 4px;
+  cursor: col-resize;
+}
+
+.terminal-divider-column {
+  height: 4px;
+  cursor: row-resize;
+}
+
+.terminal-divider:hover {
+  background: var(--accent);
 }
 
 /* Status bar */
@@ -977,4 +1084,350 @@ body,
 /* Status bar git branch */
 .status-git-branch {
   font-weight: 600;
+}
+
+/* ─── Terminal Container ─────────────────────────────────────────────────── */
+.term-resize-handle {
+  height: 4px;
+  cursor: row-resize;
+  background: transparent;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.term-resize-handle:hover {
+  background: var(--accent);
+}
+
+.term-panel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-color);
+  background: #1a1a1a;
+  overflow: hidden;
+}
+
+:root.light .term-panel {
+  background: #1e1e1e;
+}
+
+/* ─── Terminal Panel Header ─────────────────────────────────────────────── */
+.term-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #252526;
+  border-bottom: 1px solid var(--border-color);
+  min-height: 30px;
+  padding: 0 8px 0 12px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.term-panel-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #858585;
+  flex: 1;
+}
+
+.term-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ─── Terminal Tab Bar ───────────────────────────────────────────────────── */
+.term-tabbar {
+  display: flex;
+  align-items: center;
+  background: #252526;
+  border-bottom: 1px solid var(--border-color);
+  min-height: 32px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.term-tabbar-tabs {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: 1px;
+  padding: 0 4px;
+}
+
+.term-tabbar-tabs::-webkit-scrollbar { display: none; }
+
+.term-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #858585;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  white-space: nowrap;
+  border-radius: 4px 4px 0 0;
+  transition: color 0.12s, background 0.12s;
+  position: relative;
+}
+
+.term-tab:hover {
+  color: #cccccc;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.term-tab-active {
+  color: #d4d4d4;
+  background: #1a1a1a;
+  border-bottom-color: var(--accent);
+}
+
+.term-tab-split {
+  border-bottom-color: #6a9955;
+}
+
+.term-tab-icon {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: "Cascadia Code", monospace;
+  opacity: 0.8;
+  min-width: 16px;
+  text-align: center;
+}
+
+.term-tab-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.term-tab-split-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #6a9955;
+  flex-shrink: 0;
+}
+
+.term-tab-close {
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  padding: 0 1px;
+  border-radius: 3px;
+  transition: opacity 0.1s;
+  cursor: pointer;
+  color: #858585;
+}
+
+.term-tab:hover .term-tab-close,
+.term-tab-active .term-tab-close {
+  opacity: 1;
+}
+
+.term-tab-close:hover {
+  color: #f44747;
+  background: rgba(244, 71, 71, 0.15);
+}
+
+.term-tab-new {
+  background: none;
+  border: none;
+  color: #858585;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 6px;
+  height: 28px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: color 0.1s;
+}
+
+.term-tab-new:hover {
+  color: #cccccc;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.term-tabbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+
+.term-shell-select {
+  height: 22px;
+  padding: 0 6px;
+  background: #333333;
+  border: 1px solid var(--border-color);
+  color: #cccccc;
+  font-size: 11px;
+  font-family: inherit;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.term-shell-select:focus { border-color: var(--accent); }
+
+.term-action-btn {
+  width: 26px;
+  height: 26px;
+  background: none;
+  border: none;
+  color: #858585;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.1s, background 0.1s;
+}
+
+.term-action-btn:hover {
+  color: #cccccc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.term-action-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.term-action-close:hover {
+  color: #f44747;
+  background: rgba(244, 71, 71, 0.12);
+}
+
+/* ─── Terminal Body / Panes ──────────────────────────────────────────────── */
+.term-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  flex-direction: row;
+}
+
+.term-body-split-h {
+  flex-direction: row;
+}
+
+.term-body-split-v {
+  flex-direction: column;
+}
+
+.term-pane {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+}
+
+.term-split-divider {
+  background: var(--border-color);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.term-split-divider:hover {
+  background: var(--accent);
+}
+
+.term-split-divider-h {
+  width: 4px;
+  cursor: col-resize;
+}
+
+.term-split-divider-v {
+  height: 4px;
+  cursor: row-resize;
+}
+
+/* ─── Per-pane terminal toolbar ─────────────────────────────────────────── */
+.term-pane-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 0 8px;
+  height: 24px;
+  min-height: 24px;
+  background: #252526;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.term-pane-title {
+  font-size: 11px;
+  color: #858585;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.term-pane-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.term-pane-btn {
+  width: 20px;
+  height: 20px;
+  background: none;
+  border: none;
+  color: #858585;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  font-size: 14px;
+  line-height: 1;
+  transition: color 0.1s, background 0.1s;
+}
+
+.term-pane-btn:hover {
+  color: #cccccc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.term-pane-close-btn:hover {
+  color: #f44747;
+  background: rgba(244, 71, 71, 0.12);
+}
+
+/* ─── xterm host ─────────────────────────────────────────────────────────── */
+.terminal-xterm-host {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.terminal-xterm-host .xterm {
+  height: 100%;
+}
+
+.terminal-xterm-host.terminal-xterm-active {
+  outline: 1px solid rgba(0, 122, 204, 0.4);
+  outline-offset: -1px;
 }

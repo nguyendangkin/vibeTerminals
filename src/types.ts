@@ -13,3 +13,9 @@ export interface EditorTab {
   dirty: boolean;
   language: string;
 }
+
+export interface TerminalInstance {
+  id: string;
+  name: string;
+  shell?: string; // "cmd" | "powershell" | "pwsh" | undefined = auto
+}
