@@ -154,7 +154,9 @@ export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }:
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
       const { width, height: h } = entries[0].contentRect;
-      setContainerSize({ w: Math.floor(width), h: Math.floor(h) });
+      if (width > 0 && h > 0) {
+        setContainerSize({ w: Math.floor(width), h: Math.floor(h) });
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
