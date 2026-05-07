@@ -173,11 +173,13 @@ export function TerminalContainer({ cwd, visible, onToggleVisible }: TerminalCon
   const handleResizeStart = useCallback(
     (e: RMouseEvent) => {
       e.preventDefault();
+      const handle = e.currentTarget as HTMLElement;
+      const mainArea = handle.parentElement;
+      const maxH = mainArea ? mainArea.clientHeight - 38 : window.innerHeight - 80;
       const startY = e.clientY;
       const startH = height;
       const onMove = (ev: MouseEvent) => {
-        const max = window.innerHeight - 80;
-        setHeight(Math.max(120, Math.min(max, startH + (startY - ev.clientY))));
+        setHeight(Math.max(120, Math.min(maxH, startH + (startY - ev.clientY))));
       };
       const onUp = () => {
         document.removeEventListener("mousemove", onMove);

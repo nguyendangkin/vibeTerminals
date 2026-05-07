@@ -547,6 +547,7 @@ body,
 /* Editor with minimap */
 .editor-with-minimap {
   flex: 1;
+  min-height: 0;
   display: flex;
   overflow: hidden;
 }
@@ -590,6 +591,7 @@ body,
 /* Split view */
 .split-container {
   flex: 1;
+  min-height: 0;
   display: flex;
   overflow: hidden;
 }
@@ -636,6 +638,7 @@ body,
 /* Editor panel */
 .editor-panel {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
