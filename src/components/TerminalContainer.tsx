@@ -1,4 +1,4 @@
-import {
+import React, {
   useState,
   useCallback,
   useRef,
@@ -48,15 +48,15 @@ interface DividerLayout {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-let instCounter = 0;
-let splitCounter = 0;
+let nodeCounter = 0;
 
-function makeLeaf(_shell?: string): TerminalLeaf {
-  const n = ++instCounter;
-  return { type: "leaf", id: `term_${n}`, name: `PowerShell ${n}`, shell: "powershell" };
+function makeLeaf(nameCounter: React.MutableRefObject<number>, _shell?: string): TerminalLeaf {
+  const id = ++nodeCounter;
+  const n = ++nameCounter.current;
+  return { type: "leaf", id: `term_${id}`, name: `PowerShell ${n}`, shell: "powershell" };
 }
 
-function makeSplitId(): string { return `split_${++splitCounter}`; }
+function makeSplitId(): string { return `split_${++nodeCounter}`; }
 
 // ── Tree operations ────────────────────────────────────────────────────────
 
@@ -134,8 +134,14 @@ interface TerminalContainerProps {
 }
 
 export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }: TerminalContainerProps) {
-  const [root, setRoot] = useState<PaneNode>(makeLeaf);
-  const [activeId, setActiveId] = useState<string>(() => `term_${instCounter}`);
+  const mountRef = useRef<{ root: PaneNode; activeId: string } | null>(null);
+  if (mountRef.current === null) {
+    const id = `term_${++nodeCounter}`;
+    mountRef.current = { root: { type: "leaf", id, name: "PowerShell 1", shell: "powershell" }, activeId: id };
+  }
+  const instCounter = useRef(1);
+  const [root, setRoot] = useState<PaneNode>(mountRef.current.root);
+  const [activeId, setActiveId] = useState<string>(mountRef.current.activeId);
   const [height, setHeight] = useState(260);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -190,7 +196,7 @@ export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }:
   // ── Pane actions ──────────────────────────────────────────────────────
   const handleSplitH = useCallback(
     (leafId: string) => {
-      const leaf = makeLeaf();
+      const leaf = makeLeaf(instCounter);
       setRoot((prev) => doSplit(prev, leafId, "row", leaf));
       setActiveId(leaf.id);
     },
@@ -199,7 +205,7 @@ export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }:
 
   const handleSplitV = useCallback(
     (leafId: string) => {
-      const leaf = makeLeaf();
+      const leaf = makeLeaf(instCounter);
       setRoot((prev) => doSplit(prev, leafId, "col", leaf));
       setActiveId(leaf.id);
     },
@@ -213,7 +219,7 @@ export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }:
         onToggleVisible();
         return;
       }
-      setRoot((prev) => doClose(prev, leafId) ?? makeLeaf());
+      setRoot((prev) => doClose(prev, leafId) ?? makeLeaf(instCounter));
       setActiveId((prev) => (prev !== leafId ? prev : ids.find((id) => id !== leafId) ?? ""));
     },
     [root, onToggleVisible],
