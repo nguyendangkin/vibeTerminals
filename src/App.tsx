@@ -64,6 +64,7 @@ function App() {
 
   const sidebarVisible = topTab === "explorer" || topTab === "git";
   const showTerminal = topTab === "terminal";
+  const terminalReloadRef = useRef<Map<string, () => void>>(new Map());
 
   const shellRef = useRef<HTMLDivElement>(null);
   const hasRestoredRef = useRef(false);
@@ -393,7 +394,7 @@ function App() {
 
       {/* Right area: top bar + content */}
       <div className="right-area">
-        <TopBar activeTab={topTab} onTabClick={handleTopTab} />
+        <TopBar activeTab={topTab} onTabClick={handleTopTab} onReloadAll={() => { if (activeProjectId) terminalReloadRef.current.get(activeProjectId)?.(); }} />
 
         <div className="content-area" style={topTab === "terminal" ? { display: "none" } : undefined}>
           {/* Sidebar (explorer / git) */}
@@ -478,6 +479,7 @@ function App() {
                 visible={active}
                 fullscreen
                 onToggleVisible={() => { if (activeProjectId) projectTopTabsRef.current[activeProjectId] = null; setTopTab(null); }}
+                onRegisterReload={(fn) => { terminalReloadRef.current.set(p.id, fn); }}
               />
             </div>
           );

@@ -5,6 +5,7 @@ export type TopTab = "terminal" | "explorer" | "git";
 interface TopBarProps {
   activeTab: TopTab | null;
   onTabClick: (tab: TopTab) => void;
+  onReloadAll?: () => void;
 }
 
 const TABS: { id: TopTab; label: string; icon: ReactNode }[] = [
@@ -42,20 +43,34 @@ const TABS: { id: TopTab; label: string; icon: ReactNode }[] = [
   },
 ];
 
-export function TopBar({ activeTab, onTabClick }: TopBarProps) {
+export function TopBar({ activeTab, onTabClick, onReloadAll }: TopBarProps) {
   return (
     <div className="top-bar">
-      {TABS.map(({ id, label, icon }) => (
+      <div className="top-bar-tabs">
+        {TABS.map(({ id, label, icon }) => (
+          <button
+            key={id}
+            className={`top-tab${activeTab === id ? " top-tab-active" : ""}`}
+            onClick={() => onTabClick(id)}
+            title={id === "terminal" ? "Terminal (Ctrl+`)" : id === "explorer" ? "Explorer (Ctrl+Shift+E)" : "Source Control (Ctrl+Shift+G)"}
+          >
+            {icon}
+            {label}
+          </button>
+        ))}
+      </div>
+      {activeTab === "terminal" && onReloadAll && (
         <button
-          key={id}
-          className={`top-tab${activeTab === id ? " top-tab-active" : ""}`}
-          onClick={() => onTabClick(id)}
-          title={id === "terminal" ? "Terminal (Ctrl+`)" : id === "explorer" ? "Explorer (Ctrl+Shift+E)" : "Source Control (Ctrl+Shift+G)"}
+          className="top-bar-reload-btn"
+          onClick={onReloadAll}
+          title="Rerun last commands in all terminals"
         >
-          {icon}
-          {label}
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+          </svg>
         </button>
-      ))}
+      )}
     </div>
   );
 }

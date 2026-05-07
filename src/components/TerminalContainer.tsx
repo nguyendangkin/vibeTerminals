@@ -54,6 +54,7 @@ interface PersistedTerminalLayout {
   activeId: string;
   height: number;
   nameCounter: number;
+  lastCommands: Record<string, string>;
 }
 
 const terminalStorageKey = (pid: string) => `tertito_terminal_${pid}`;
@@ -155,22 +156,23 @@ interface TerminalContainerProps {
   visible: boolean;
   fullscreen?: boolean;
   onToggleVisible: () => void;
+  onRegisterReload?: (fn: () => void) => void;
 }
 
-export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggleVisible }: TerminalContainerProps) {
-  const mountRef = useRef<{ root: PaneNode; activeId: string; nameCounter: number; height: number } | null>(null);
+export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggleVisible, onRegisterReload }: TerminalContainerProps) {
+  const mountRef = useRef<{ root: PaneNode; activeId: string; nameCounter: number; height: number; lastCommands: Record<string, string> } | null>(null);
   if (mountRef.current === null) {
     const saved = localStorage.getItem(terminalStorageKey(projectId));
     if (saved) {
       try {
         const parsed: PersistedTerminalLayout = JSON.parse(saved);
         seedNodeCounter(parsed.root);
-        mountRef.current = { root: parsed.root, activeId: parsed.activeId, nameCounter: parsed.nameCounter, height: parsed.height };
+        mountRef.current = { root: parsed.root, activeId: parsed.activeId, nameCounter: parsed.nameCounter, height: parsed.height, lastCommands: parsed.lastCommands ?? {} };
       } catch { /* fall through */ }
     }
     if (mountRef.current === null) {
       const id = `term_${++nodeCounter}`;
-      mountRef.current = { root: { type: "leaf", id, name: "PowerShell 1", shell: "powershell" }, activeId: id, nameCounter: 1, height: 260 };
+      mountRef.current = { root: { type: "leaf", id, name: "PowerShell 1", shell: "powershell" }, activeId: id, nameCounter: 1, height: 260, lastCommands: {} };
     }
   }
   const instCounter = useRef(mountRef.current.nameCounter);
@@ -180,9 +182,17 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRefsMap = useRef(new Map<string, TerminalPanelHandle>());
+  const [lastCommands, setLastCommands] = useState<Record<string, string>>(mountRef.current.lastCommands);
   const [ctxMenu, setCtxMenu] = useState<{
     text: string; x: number; y: number; sourceId: string;
   } | null>(null);
+
+  const handleCommandChange = useCallback((leafId: string, cmd: string) => {
+    setLastCommands((prev) => {
+      if (prev[leafId] === cmd) return prev;
+      return { ...prev, [leafId]: cmd };
+    });
+  }, []);
 
   // ── Measure container for flat pixel layout ────────────────────────────
   useLayoutEffect(() => {
@@ -267,6 +277,16 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
     setRoot((prev) => doUpdateRatio(prev, splitId, ratio));
   }, []);
 
+  const handleReloadAll = useCallback(() => {
+    panelRefsMap.current.forEach((panel) => {
+      panel.reload();
+    });
+  }, []);
+
+  useEffect(() => {
+    onRegisterReload?.(handleReloadAll);
+  }, [handleReloadAll, onRegisterReload]);
+
   const handleTermContextMenu = useCallback(
     (leafId: string, text: string, x: number, y: number) => {
       setCtxMenu({ text, x, y, sourceId: leafId });
@@ -293,9 +313,10 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
       activeId,
       height,
       nameCounter: instCounter.current,
+      lastCommands,
     };
     localStorage.setItem(terminalStorageKey(projectId), JSON.stringify(state));
-  }, [root, activeId, height, projectId]);
+  }, [root, activeId, height, lastCommands, projectId]);
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -379,8 +400,10 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
                 shell={leaf.shell}
                 visible={visible}
                 active={leaf.id === activeId}
+                initialCommand={lastCommands[leaf.id]}
                 onFocus={() => setActiveId(leaf.id)}
                 onContextMenu={(text, x, y) => handleTermContextMenu(leaf.id, text, x, y)}
+                onCommandChange={(cmd) => handleCommandChange(leaf.id, cmd)}
               />
             </div>
           ))}

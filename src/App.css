@@ -96,12 +96,20 @@ body,
 /* ─── Top Bar ────────────────────────────────────────────────────────────── */
 .top-bar {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  justify-content: space-between;
   background: #0e0e0e;
   border-bottom: 1px solid var(--border-color);
   height: 36px;
   flex-shrink: 0;
-  padding: 0 8px;
+  padding: 0 4px 0 8px;
+  gap: 2px;
+}
+
+.top-bar-tabs {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
   gap: 2px;
 }
 
@@ -132,6 +140,27 @@ body,
 .top-tab-active {
   color: var(--text-primary);
   border-bottom-color: var(--accent);
+}
+
+.top-bar-reload-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: #858585;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.top-bar-reload-btn:hover {
+  background: #1a3a2a;
+  color: #6a9955;
 }
 
 /* ─── Project Bar (Discord-style) ───────────────────────────────────────── */

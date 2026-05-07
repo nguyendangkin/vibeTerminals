@@ -20,17 +20,20 @@ interface TerminalPanelProps {
   visible: boolean;
   shell?: string;
   active?: boolean;
+  initialCommand?: string;
   onFocus?: () => void;
   onContextMenu?: (selectedText: string, x: number, y: number) => void;
+  onCommandChange?: (cmd: string) => void;
 }
 
 export interface TerminalPanelHandle {
   writeText: (text: string) => void;
   reload: () => void;
+  getLastCommand: () => string;
 }
 
 export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>(
-function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onContextMenu }, ref) {
+function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand, onFocus, onContextMenu, onCommandChange }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -39,6 +42,9 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onCon
   const unlistenExitRef = useRef<UnlistenFn | null>(null);
   const onContextMenuRef = useRef(onContextMenu);
   useEffect(() => { onContextMenuRef.current = onContextMenu; });
+
+  const onCommandChangeRef = useRef(onCommandChange);
+  useEffect(() => { onCommandChangeRef.current = onCommandChange; });
 
   const inputBufferRef = useRef<string>("");
   const lastCommandRef = useRef<string>("");
@@ -142,6 +148,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onCon
       }
     },
     reload,
+    getLastCommand: () => lastCommandRef.current,
   }), [reload]);
 
   const doFit = useCallback(() => {
@@ -203,6 +210,10 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onCon
     try { fitAddon.fit(); } catch { /* ignore */ }
     setTimeout(() => { try { fitAddon.fit(); } catch { /* ignore */ } }, 60);
 
+    if (initialCommand) {
+      lastCommandRef.current = initialCommand;
+    }
+
     term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "v" && e.type === "keydown") {
         invoke<string>("read_clipboard").then((text) => {
@@ -255,6 +266,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onCon
         if (ch === '\r') {
           if (inputBufferRef.current.trim()) {
             lastCommandRef.current = inputBufferRef.current.trim();
+            onCommandChangeRef.current?.(lastCommandRef.current);
           }
           inputBufferRef.current = "";
         } else if (ch === '\x7f' || ch === '\x08') {
