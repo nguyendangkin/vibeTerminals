@@ -387,7 +387,6 @@ function App() {
       <ProjectBar
         projects={projects}
         activeProjectId={activeProjectId}
-        activeTopTab={topTab}
         onSelectProject={handleSelectProject}
         onCloseProject={handleCloseProject}
         onAddProject={handleAddProject}

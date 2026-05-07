@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
 import type { Project } from "../types";
-import type { TopTab } from "./TopBar";
 
 const AVATAR_COLORS = [
   "#007acc", "#6a9955", "#ce9178", "#c586c0",
@@ -22,7 +21,6 @@ function initials(name: string): string {
 interface ProjectBarProps {
   projects: Project[];
   activeProjectId: string | null;
-  activeTopTab: TopTab | null;
   onSelectProject: (id: string) => void;
   onCloseProject: (id: string) => void;
   onAddProject: () => void;
@@ -31,7 +29,6 @@ interface ProjectBarProps {
 export function ProjectBar({
   projects,
   activeProjectId,
-  activeTopTab,
   onSelectProject,
   onCloseProject,
   onAddProject,
@@ -50,7 +47,7 @@ export function ProjectBar({
 
       <div className="project-bar-list">
         {projects.map((p) => {
-          const isActive = p.id === activeProjectId && activeTopTab === "explorer";
+          const isActive = p.id === activeProjectId;
           return (
             <div
               key={p.id}
