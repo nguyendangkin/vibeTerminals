@@ -14,6 +14,25 @@ import "./App.css";
 let tabCounter = 0;
 let projectCounter = 0;
 
+const STORAGE_KEY = "tertito_persist";
+
+const LANG_MAP: Record<string, string> = {
+  js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
+  json: "json", html: "html", htm: "html", css: "css",
+  rs: "rust", py: "python", md: "markdown", xml: "xml",
+};
+
+interface PersistedWorkspace {
+  tabPaths: string[];
+  activeTabPath: string | null;
+}
+
+interface PersistedState {
+  projects: { id: string; path: string; name: string }[];
+  activeProjectId: string | null;
+  workspaces: Record<string, PersistedWorkspace>;
+}
+
 function emptyWorkspace(): WorkspaceState {
   return { tabs: [], activeTabId: null };
 }
@@ -43,6 +62,81 @@ function App() {
   const [showTerminal, setShowTerminal] = useState(false);
 
   const shellRef = useRef<HTMLDivElement>(null);
+  const hasRestoredRef = useRef(false);
+
+  // ── persist / restore ────────────────────────────────────────────────────
+  useEffect(() => {
+    async function restore() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) { hasRestoredRef.current = true; return; }
+      let saved: PersistedState;
+      try { saved = JSON.parse(raw); } catch { hasRestoredRef.current = true; return; }
+
+      saved.projects.forEach((p) => {
+        const n = parseInt(p.id.replace("proj_", ""));
+        if (!isNaN(n) && n > projectCounter) projectCounter = n;
+      });
+
+      const restoredProjects: Project[] = [];
+      const restoredWorkspaces: Record<string, WorkspaceState> = {};
+
+      for (const sp of saved.projects) {
+        let tree: DirEntry[] = [];
+        try { tree = await invoke<DirEntry[]>("list_dir", { path: sp.path }); }
+        catch { continue; }
+
+        restoredProjects.push({ id: sp.id, path: sp.path, name: sp.name, fileTree: tree });
+
+        const pw = saved.workspaces[sp.id];
+        if (!pw) { restoredWorkspaces[sp.id] = emptyWorkspace(); continue; }
+
+        const tabs: EditorTab[] = [];
+        let activeTabId: string | null = null;
+
+        for (const tabPath of pw.tabPaths) {
+          let content = "";
+          try { content = await invoke<string>("read_file_content", { path: tabPath }); }
+          catch { continue; }
+          const fileName = tabPath.split(/[\/\\]/).pop() ?? "untitled";
+          const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+          const tab: EditorTab = { id: `tab_${++tabCounter}`, title: fileName, path: tabPath, content, dirty: false, language: LANG_MAP[ext] ?? "plaintext" };
+          tabs.push(tab);
+          if (tabPath === pw.activeTabPath) activeTabId = tab.id;
+        }
+
+        restoredWorkspaces[sp.id] = { tabs, activeTabId: activeTabId ?? tabs[0]?.id ?? null };
+      }
+
+      if (restoredProjects.length > 0) {
+        setProjects(restoredProjects);
+        setWorkspaces(restoredWorkspaces);
+        const validActiveId = saved.activeProjectId && restoredProjects.some((p) => p.id === saved.activeProjectId)
+          ? saved.activeProjectId
+          : restoredProjects[0].id;
+        setActiveProjectId(validActiveId);
+      }
+      hasRestoredRef.current = true;
+    }
+    restore();
+  }, []);
+
+  useEffect(() => {
+    if (!hasRestoredRef.current) return;
+    const state: PersistedState = {
+      projects: projects.map(({ id, path, name }) => ({ id, path, name })),
+      activeProjectId,
+      workspaces: Object.fromEntries(
+        Object.entries(workspaces).map(([pid, ws]) => [
+          pid,
+          {
+            tabPaths: ws.tabs.filter((t) => t.path).map((t) => t.path!),
+            activeTabPath: ws.tabs.find((t) => t.id === ws.activeTabId)?.path ?? null,
+          },
+        ])
+      ),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [projects, workspaces, activeProjectId]);
 
   // ── workspace helpers ─────────────────────────────────────────────────────
   const updateWorkspace = useCallback((pid: string, fn: (ws: WorkspaceState) => WorkspaceState) => {
@@ -80,12 +174,7 @@ function App() {
       const content = await invoke<string>("read_file_content", { path: filePath });
       const fileName = filePath.split(/[/\\]/).pop() ?? "untitled";
       const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
-      const langMap: Record<string, string> = {
-        js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
-        json: "json", html: "html", htm: "html", css: "css",
-        rs: "rust", py: "python", md: "markdown", xml: "xml",
-      };
-      const tab = createTab(fileName, filePath, content, langMap[ext] ?? "plaintext");
+      const tab = createTab(fileName, filePath, content, LANG_MAP[ext] ?? "plaintext");
       updateWorkspace(activeProjectId, (w) => ({ ...w, tabs: [...w.tabs, tab], activeTabId: tab.id }));
     } catch (err) { console.error("Failed to open file:", err); }
   }, [activeProjectId, workspaces, createTab, updateWorkspace]);
