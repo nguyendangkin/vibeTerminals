@@ -32,7 +32,7 @@ interface PersistedState {
   projects: { id: string; path: string; name: string }[];
   activeProjectId: string | null;
   workspaces: Record<string, PersistedWorkspace>;
-  topTab?: TopTab | null;
+  projectTopTabs?: Record<string, TopTab | null>;
 }
 
 function emptyWorkspace(): WorkspaceState {
@@ -66,6 +66,7 @@ function App() {
 
   const shellRef = useRef<HTMLDivElement>(null);
   const hasRestoredRef = useRef(false);
+  const projectTopTabsRef = useRef<Record<string, TopTab | null>>({});
 
   // ── persist / restore ────────────────────────────────────────────────────
   useEffect(() => {
@@ -117,11 +118,10 @@ function App() {
           ? saved.activeProjectId
           : restoredProjects[0].id;
         setActiveProjectId(validActiveId);
-        if (saved.topTab !== undefined) {
-          setTopTab(saved.topTab ?? "explorer");
-        } else {
-          setTopTab("explorer");
+        if (saved.projectTopTabs) {
+          projectTopTabsRef.current = saved.projectTopTabs;
         }
+        setTopTab(projectTopTabsRef.current[validActiveId] ?? "explorer");
       }
       hasRestoredRef.current = true;
     }
@@ -142,7 +142,7 @@ function App() {
           },
         ])
       ),
-      topTab,
+      projectTopTabs: projectTopTabsRef.current,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [projects, workspaces, activeProjectId, topTab]);
@@ -316,21 +316,19 @@ function App() {
 
   // ── top bar & panel handlers ─────────────────────────────────────────────
   const handleTopTab = useCallback((tab: TopTab) => {
-    setTopTab((prev) => (prev === tab ? null : tab));
-  }, []);
+    setTopTab((prev) => {
+      const next = prev === tab ? null : tab;
+      if (activeProjectId) projectTopTabsRef.current[activeProjectId] = next;
+      return next;
+    });
+  }, [activeProjectId]);
 
   const handleSelectProject = useCallback((id: string) => {
-    if (activeProjectId === id && topTab === "explorer") {
-      setTopTab(null);
-    } else {
-      setActiveProjectId(id);
-      setTopTab("explorer");
-    }
-  }, [activeProjectId, topTab]);
-
-  const handleToggleGit = useCallback(() => {
-    setTopTab((prev) => (prev === "git" ? null : "git"));
+    setActiveProjectId(id);
+    setTopTab(projectTopTabsRef.current[id] ?? "explorer");
   }, []);
+
+  const handleToggleGit = useCallback(() => handleTopTab("git"), [handleTopTab]);
 
   // ── keyboard shortcuts ────────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -340,7 +338,7 @@ function App() {
     if (ctrl && shift && key === "p") { e.preventDefault(); setShowPalette(true); return; }
     if (ctrl && shift && key === "f") { e.preventDefault(); setShowSearch(true); return; }
     if (ctrl && shift && key === "g") { e.preventDefault(); handleToggleGit(); return; }
-    if (ctrl && shift && key === "e") { e.preventDefault(); setTopTab((prev) => (prev === "explorer" ? null : "explorer")); return; }
+    if (ctrl && shift && key === "e") { e.preventDefault(); handleTopTab("explorer"); return; }
     if (ctrl && key === "tab") {
       e.preventDefault();
       if (tabs.length < 2) return;
@@ -348,7 +346,7 @@ function App() {
       setActiveTabId(tabs[(idx + (shift ? -1 : 1) + tabs.length) % tabs.length].id);
       return;
     }
-    if (ctrl && key === "`") { e.preventDefault(); setTopTab((prev) => (prev === "terminal" ? null : "terminal")); return; }
+    if (ctrl && key === "`") { e.preventDefault(); handleTopTab("terminal"); return; }
     if (ctrl) {
       switch (key) {
         case "o": e.preventDefault(); handleAddProject(); break;
@@ -371,7 +369,7 @@ function App() {
     { id: "new-tab", label: "New Tab", shortcut: "Ctrl+N", action: handleNewTab },
     { id: "close-tab", label: "Close Tab", shortcut: "Ctrl+W", action: () => activeTabId && handleCloseTab(activeTabId) },
     { id: "search", label: "Search in Files", shortcut: "Ctrl+Shift+F", action: () => setShowSearch(true) },
-    { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => setTopTab((prev) => (prev === "terminal" ? null : "terminal")) },
+    { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => handleTopTab("terminal") },
     { id: "git-panel", label: "Source Control", shortcut: "Ctrl+Shift+G", action: handleToggleGit },
   ];
 
@@ -471,7 +469,7 @@ function App() {
                 cwd={p.path}
                 visible={active}
                 fullscreen
-                onToggleVisible={() => setTopTab(null)}
+                onToggleVisible={() => { if (activeProjectId) projectTopTabsRef.current[activeProjectId] = null; setTopTab(null); }}
               />
             </div>
           );
