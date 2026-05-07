@@ -174,7 +174,8 @@ export function TerminalContainer({ cwd, visible, onToggleVisible }: TerminalCon
     (e: RMouseEvent) => {
       e.preventDefault();
       const handle = e.currentTarget as HTMLElement;
-      const mainArea = handle.parentElement;
+      let mainArea: HTMLElement | null = handle.parentElement;
+      while (mainArea && mainArea.clientHeight === 0) mainArea = mainArea.parentElement;
       const maxH = mainArea ? mainArea.clientHeight - 38 : window.innerHeight - 80;
       const startY = e.clientY;
       const startH = height;
