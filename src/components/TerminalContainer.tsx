@@ -51,14 +51,9 @@ interface DividerLayout {
 let instCounter = 0;
 let splitCounter = 0;
 
-function makeLeaf(shell?: string): TerminalLeaf {
+function makeLeaf(_shell?: string): TerminalLeaf {
   const n = ++instCounter;
-  const name =
-    shell === "powershell" ? `PowerShell ${n}`
-    : shell === "pwsh" ? `PS Core ${n}`
-    : shell === "cmd" ? `CMD ${n}`
-    : `Terminal ${n}`;
-  return { type: "leaf", id: `term_${n}`, name, shell };
+  return { type: "leaf", id: `term_${n}`, name: `PowerShell ${n}`, shell: "powershell" };
 }
 
 function makeSplitId(): string { return `split_${++splitCounter}`; }
@@ -141,9 +136,6 @@ interface TerminalContainerProps {
 export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }: TerminalContainerProps) {
   const [root, setRoot] = useState<PaneNode>(makeLeaf);
   const [activeId, setActiveId] = useState<string>(() => `term_${instCounter}`);
-  const [globalShell, setGlobalShell] = useState(
-    () => localStorage.getItem("terminalShell") ?? "",
-  );
   const [height, setHeight] = useState(260);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -198,20 +190,20 @@ export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }:
   // ── Pane actions ──────────────────────────────────────────────────────
   const handleSplitH = useCallback(
     (leafId: string) => {
-      const leaf = makeLeaf(globalShell || undefined);
+      const leaf = makeLeaf();
       setRoot((prev) => doSplit(prev, leafId, "row", leaf));
       setActiveId(leaf.id);
     },
-    [globalShell],
+    [],
   );
 
   const handleSplitV = useCallback(
     (leafId: string) => {
-      const leaf = makeLeaf(globalShell || undefined);
+      const leaf = makeLeaf();
       setRoot((prev) => doSplit(prev, leafId, "col", leaf));
       setActiveId(leaf.id);
     },
-    [globalShell],
+    [],
   );
 
   const handleClose = useCallback(
@@ -221,19 +213,14 @@ export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }:
         onToggleVisible();
         return;
       }
-      setRoot((prev) => doClose(prev, leafId) ?? makeLeaf(globalShell || undefined));
+      setRoot((prev) => doClose(prev, leafId) ?? makeLeaf());
       setActiveId((prev) => (prev !== leafId ? prev : ids.find((id) => id !== leafId) ?? ""));
     },
-    [root, globalShell, onToggleVisible],
+    [root, onToggleVisible],
   );
 
   const handleRatioChange = useCallback((splitId: string, ratio: number) => {
     setRoot((prev) => doUpdateRatio(prev, splitId, ratio));
-  }, []);
-
-  const handleGlobalShellChange = useCallback((shell: string) => {
-    setGlobalShell(shell);
-    localStorage.setItem("terminalShell", shell);
   }, []);
 
   // ── Render ─────────────────────────────────────────────────────────────
@@ -244,17 +231,6 @@ export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }:
         <div className="term-panel-header">
           <span className="term-panel-title">TERMINAL</span>
           <div className="term-panel-actions">
-            <select
-              className="term-shell-select"
-              value={globalShell}
-              onChange={(e) => handleGlobalShellChange(e.target.value)}
-              title="Shell for new terminals"
-            >
-              <option value="">Auto</option>
-              <option value="cmd">CMD</option>
-              <option value="powershell">PowerShell</option>
-              <option value="pwsh">PS Core</option>
-            </select>
             <button
               className="term-action-btn term-action-close"
               onClick={onToggleVisible}

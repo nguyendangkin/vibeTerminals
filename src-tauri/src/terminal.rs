@@ -29,31 +29,13 @@ impl TerminalManager {
     }
 }
 
-fn get_shell_command(preferred: Option<&str>) -> (String, Vec<String>) {
+fn get_shell_command(_preferred: Option<&str>) -> (String, Vec<String>) {
     #[cfg(target_os = "windows")]
     {
-        match preferred {
-            Some("cmd") => return ("cmd.exe".into(), vec![]),
-            Some("powershell") => return ("powershell.exe".into(), vec!["-NoLogo".into()]),
-            Some("pwsh") => return ("pwsh.exe".into(), vec!["-NoLogo".into()]),
-            _ => {}
-        }
-        // Auto-detect: prefer pwsh if available
-        if std::process::Command::new("pwsh.exe")
-            .arg("-NoProfile")
-            .arg("-Command")
-            .arg("exit 0")
-            .output()
-            .is_ok()
-        {
-            return ("pwsh.exe".into(), vec!["-NoLogo".into()]);
-        }
-        ("cmd.exe".into(), vec![])
+        ("powershell.exe".into(), vec!["-NoLogo".into()])
     }
     #[cfg(not(target_os = "windows"))]
     {
-        // On Unix, ignore preference and use $SHELL or bash
-        let _ = preferred;
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".into());
         (shell, vec![])
     }
