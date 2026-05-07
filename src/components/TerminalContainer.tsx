@@ -279,6 +279,7 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
       const panel = panelRefsMap.current.get(targetId);
       if (panel && ctxMenu) {
         panel.writeText(ctxMenu.text);
+        setActiveId(targetId);
         setCtxMenu(null);
       }
     },
