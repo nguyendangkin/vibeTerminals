@@ -26,6 +26,7 @@ interface TerminalPanelProps {
 
 export interface TerminalPanelHandle {
   writeText: (text: string) => void;
+  reload: () => void;
 }
 
 export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>(
@@ -39,13 +40,109 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onCon
   const onContextMenuRef = useRef(onContextMenu);
   useEffect(() => { onContextMenuRef.current = onContextMenu; });
 
+  const inputBufferRef = useRef<string>("");
+  const lastCommandRef = useRef<string>("");
+  const inEscapeRef = useRef(false);
+
+  // Keep latest cwd/shell in refs so reload always picks up current values
+  const cwdRef = useRef(cwd);
+  const shellRef = useRef(shell);
+  useEffect(() => { cwdRef.current = cwd; });
+  useEffect(() => { shellRef.current = shell; });
+
+  // Epoch counter to cancel stale connectPty calls on rapid reload
+  const connectEpochRef = useRef(0);
+
+  // Connect to a PTY: kill old session, spawn a new one, set up event listeners.
+  // Returns the new terminal ID, or null on failure / if superseded by a newer call.
+  const connectPty = useCallback(async (): Promise<number | null> => {
+    const term = termRef.current;
+    if (!term) return null;
+
+    const epoch = ++connectEpochRef.current;
+
+    // Clean up old listeners
+    unlistenOutRef.current?.();
+    unlistenExitRef.current?.();
+    unlistenOutRef.current = null;
+    unlistenExitRef.current = null;
+
+    // Kill old PTY session if one exists
+    const oldId = termIdRef.current;
+    if (oldId !== null) {
+      await invoke("terminal_kill", { id: oldId }).catch(() => {});
+      termIdRef.current = null;
+    }
+
+    if (epoch !== connectEpochRef.current) return null; // superseded
+
+    try {
+      const id: number = await invoke("terminal_spawn", {
+        cols: term.cols,
+        rows: term.rows,
+        cwd: cwdRef.current ?? undefined,
+        shell: shellRef.current ?? undefined,
+      });
+
+      if (epoch !== connectEpochRef.current) {
+        // Superseded while spawning — clean up and abort
+        invoke("terminal_kill", { id }).catch(() => {});
+        return null;
+      }
+
+      termIdRef.current = id;
+
+      const unOut = await listen<TerminalOutputPayload>("terminal-output", (ev) => {
+        if (ev.payload.id === id) {
+          term.write(new Uint8Array(ev.payload.data));
+        }
+      });
+
+      const unExit = await listen<TerminalExitPayload>("terminal-exit", (ev) => {
+        if (ev.payload.id === id) {
+          term.writeln("\r\n\x1b[2m[Process exited]\x1b[0m");
+        }
+      });
+
+      if (epoch !== connectEpochRef.current) {
+        // Superseded after listener setup — clean up
+        unOut();
+        unExit();
+        invoke("terminal_kill", { id }).catch(() => {});
+        return null;
+      }
+
+      unlistenOutRef.current = unOut;
+      unlistenExitRef.current = unExit;
+
+      setTimeout(() => { try { fitRef.current?.fit(); } catch { /* ignore */ } }, 60);
+
+      return id;
+    } catch (err) {
+      term.writeln(`\r\n\x1b[31m[Failed to start terminal: ${err}]\x1b[0m`);
+      return null;
+    }
+  }, []);
+
+  const reload = useCallback(() => {
+    const cmd = lastCommandRef.current;
+
+    connectPty().then((newId) => {
+      if (newId === null || !cmd) return;
+
+      const bytes = Array.from(new TextEncoder().encode(cmd + "\r"));
+      invoke("terminal_write", { id: newId, data: bytes }).catch(() => {});
+    });
+  }, [connectPty]);
+
   useImperativeHandle(ref, () => ({
     writeText: (text: string) => {
       if (termRef.current) {
         termRef.current.paste(text);
       }
     },
-  }), []);
+    reload,
+  }), [reload]);
 
   const doFit = useCallback(() => {
     if (!fitRef.current || !termRef.current) return;
@@ -148,6 +245,30 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onCon
     term.onData((data) => {
       const id = termIdRef.current;
       if (id === null) return;
+
+      // Track last command from user input (skip escape sequences)
+      for (const ch of data) {
+        if (inEscapeRef.current) {
+          if (/[a-zA-Z~]/.test(ch)) inEscapeRef.current = false;
+          continue;
+        }
+        if (ch === '\r') {
+          if (inputBufferRef.current.trim()) {
+            lastCommandRef.current = inputBufferRef.current.trim();
+          }
+          inputBufferRef.current = "";
+        } else if (ch === '\x7f' || ch === '\x08') {
+          inputBufferRef.current = inputBufferRef.current.slice(0, -1);
+        } else if (ch === '\x03') {
+          inputBufferRef.current = "";
+        } else if (ch === '\x1b') {
+          inputBufferRef.current = "";
+          inEscapeRef.current = true;
+        } else if (ch >= ' ') {
+          inputBufferRef.current += ch;
+        }
+      }
+
       const bytes = Array.from(encoder.encode(data));
       invoke("terminal_write", { id, data: bytes }).catch(() => {});
     });
@@ -161,46 +282,11 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onCon
 
     let cancelled = false;
 
-    (async () => {
-      try {
-        const id: number = await invoke("terminal_spawn", {
-          cols: term.cols,
-          rows: term.rows,
-          cwd: cwd ?? undefined,
-          shell: shell ?? undefined,
-        });
-        if (cancelled) {
-          invoke("terminal_kill", { id }).catch(() => {});
-          return;
-        }
-        termIdRef.current = id;
-
-        const unOut = await listen<TerminalOutputPayload>("terminal-output", (ev) => {
-          if (ev.payload.id === id) {
-            term.write(new Uint8Array(ev.payload.data));
-          }
-        });
-        const unExit = await listen<TerminalExitPayload>("terminal-exit", (ev) => {
-          if (ev.payload.id === id) {
-            term.writeln("\r\n\x1b[2m[Process exited]\x1b[0m");
-          }
-        });
-
-        if (cancelled) {
-          unOut();
-          unExit();
-          invoke("terminal_kill", { id }).catch(() => {});
-          return;
-        }
-
-        unlistenOutRef.current = unOut;
-        unlistenExitRef.current = unExit;
-
-        setTimeout(() => { try { fitAddon.fit(); } catch { /* ignore */ } }, 60);
-      } catch (err) {
-        term.writeln(`\r\n\x1b[31m[Failed to start terminal: ${err}]\x1b[0m`);
+    connectPty().then((id) => {
+      if (cancelled && id !== null) {
+        invoke("terminal_kill", { id }).catch(() => {});
       }
-    })();
+    });
 
     return () => {
       cancelled = true;

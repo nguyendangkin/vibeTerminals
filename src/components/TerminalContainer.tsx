@@ -328,6 +328,19 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
                 <span className="term-pane-title">{leaf.name}</span>
                 <div className="term-pane-actions">
                   <button
+                    className="term-pane-btn term-pane-reload-btn"
+                    onClick={() => {
+                      const panel = panelRefsMap.current.get(leaf.id);
+                      panel?.reload();
+                    }}
+                    title="Rerun last command"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                      <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                      <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                    </svg>
+                  </button>
+                  <button
                     className="term-pane-btn"
                     onClick={() => handleSplitH(leaf.id)}
                     title="Split Right"

@@ -1762,6 +1762,11 @@ body,
   background: rgba(244, 71, 71, 0.12);
 }
 
+.term-pane-reload-btn:hover {
+  color: #73c991;
+  background: rgba(115, 201, 145, 0.12);
+}
+
 /* ─── xterm host ─────────────────────────────────────────────────────────── */
 .terminal-xterm-host {
   flex: 1;
