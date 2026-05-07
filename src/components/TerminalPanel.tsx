@@ -175,6 +175,13 @@ export function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus
     return () => ro.disconnect();
   }, [doFit]);
 
+  // Sync keyboard focus with active state
+  useEffect(() => {
+    if (active && termRef.current) {
+      termRef.current.focus();
+    }
+  }, [active]);
+
   // Log instanceId usage to prevent lint warning
   void instanceId;
 

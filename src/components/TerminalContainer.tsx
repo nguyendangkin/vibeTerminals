@@ -65,8 +65,13 @@ function doSplit(root: PaneNode, leafId: string, dir: "row" | "col", newLeaf: Te
     if (root.id !== leafId) return root;
     return { type: "split", id: makeSplitId(), dir, ratio: 0.5, a: root, b: newLeaf };
   }
-  return { ...root, a: doSplit(root.a, leafId, dir, newLeaf), b: doSplit(root.b, leafId, dir, newLeaf) };
+  const newA = doSplit(root.a, leafId, dir, newLeaf);
+  if (newA !== root.a) return { ...root, a: newA };
+  const newB = doSplit(root.b, leafId, dir, newLeaf);
+  if (newB !== root.b) return { ...root, b: newB };
+  return root;
 }
+
 
 function doClose(root: PaneNode, leafId: string): PaneNode | null {
   if (root.type === "leaf") return root.id === leafId ? null : root;
@@ -244,6 +249,7 @@ export function TerminalContainer({ cwd, visible, fullscreen, onToggleVisible }:
           {leaves.map((leaf) => (
             <div
               key={leaf.id}
+              className={leaf.id === activeId ? "term-pane-wrapper term-pane-wrapper-active" : "term-pane-wrapper"}
               style={{
                 position: "absolute",
                 left: leaf.rect.left,
