@@ -1783,3 +1783,81 @@ body,
 .term-pane-wrapper.term-pane-wrapper-active {
   outline-color: rgba(0, 122, 204, 0.4);
 }
+
+/* ─── Welcome Screen ─────────────────────────────────────────────────────── */
+.welcome-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  background: var(--bg-primary);
+  background-image: radial-gradient(circle, rgba(74, 158, 255, 0.05) 1px, transparent 1px);
+  background-size: 28px 28px;
+  user-select: none;
+  overflow: hidden;
+}
+
+.welcome-mascot-wrap {
+  animation: mascot-bob 2.4s ease-in-out infinite, mascot-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes mascot-bob {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-10px); }
+}
+
+@keyframes mascot-glow {
+  0%, 100% { filter: drop-shadow(0 4px 14px rgba(74, 158, 255, 0.18)); }
+  50%       { filter: drop-shadow(0 6px 24px rgba(74, 158, 255, 0.48)); }
+}
+
+.mascot-antenna {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: antenna-wobble 3.8s ease-in-out infinite;
+}
+
+@keyframes antenna-wobble {
+  0%, 40%, 60%, 100% { transform: rotate(0deg); }
+  20%                 { transform: rotate(10deg); }
+  80%                 { transform: rotate(-7deg); }
+}
+
+.mascot-eye {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: eye-blink 5s ease-in-out infinite;
+}
+
+.mascot-eye-right {
+  animation-delay: 0.06s;
+}
+
+@keyframes eye-blink {
+  0%, 87%, 100% { transform: scaleY(1); }
+  91%            { transform: scaleY(0.05); }
+  95%            { transform: scaleY(1); }
+}
+
+.welcome-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.welcome-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 5px;
+  text-transform: lowercase;
+}
+
+.welcome-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}

@@ -10,6 +10,7 @@ import { GitPanel } from "./components/GitPanel";
 import { ProjectBar } from "./components/ProjectBar";
 import { TopBar, type TopTab } from "./components/TopBar";
 import { TerminalContainer } from "./components/TerminalContainer";
+import { WelcomeScreen } from "./components/WelcomeScreen";
 import "./App.css";
 
 let tabCounter = 0;
@@ -435,25 +436,31 @@ function App() {
 
           {/* Main editor area */}
           <div className="main-area">
-            {showSearch && (
-              <SearchPanel
-                rootPath={rootPath}
-                onOpenFile={(p) => { openFileInTab(p); setShowSearch(false); }}
-                onClose={() => setShowSearch(false)}
-              />
+            {tabs.length === 0 ? (
+              <WelcomeScreen />
+            ) : (
+              <>
+                {showSearch && (
+                  <SearchPanel
+                    rootPath={rootPath}
+                    onOpenFile={(p) => { openFileInTab(p); setShowSearch(false); }}
+                    onClose={() => setShowSearch(false)}
+                  />
+                )}
+
+                <TabBar
+                  tabs={tabs}
+                  activeTabId={activeTabId}
+                  onSelectTab={setActiveTabId}
+                  onCloseTab={handleCloseTab}
+                  onNewTab={handleNewTab}
+                />
+
+                <div className="editor-area">
+                  <EditorPanel tab={activeTab} onChange={handleContentChange} />
+                </div>
+              </>
             )}
-
-            <TabBar
-              tabs={tabs}
-              activeTabId={activeTabId}
-              onSelectTab={setActiveTabId}
-              onCloseTab={handleCloseTab}
-              onNewTab={handleNewTab}
-            />
-
-            <div className="editor-area">
-              <EditorPanel tab={activeTab} onChange={handleContentChange} />
-            </div>
           </div>
         </div>
 

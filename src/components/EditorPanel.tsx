@@ -123,7 +123,7 @@ export function EditorPanel({ tab, onChange, onCursorChange }: EditorPanelProps)
   }, [tab?.content]);
 
   if (!tab) {
-    return <div className="editor-empty">No file open. Ctrl+O to open a folder.</div>;
+    return null;
   }
 
   return <div className="editor-panel" ref={editorRef} />;
