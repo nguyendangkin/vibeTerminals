@@ -27,4 +27,5 @@ tauri-plugin-fs = "2.5.1"
 regex = "1.12.3"
 portable-pty = "0.8"
 vt100 = "0.15"
+arboard = "3"
 

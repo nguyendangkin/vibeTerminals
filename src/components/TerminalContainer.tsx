@@ -7,7 +7,7 @@ import React, {
   useEffect,
   type MouseEvent as RMouseEvent,
 } from "react";
-import { TerminalPanel } from "./TerminalPanel";
+import { TerminalPanel, type TerminalPanelHandle } from "./TerminalPanel";
 
 // ── Pane tree types ────────────────────────────────────────────────────────
 
@@ -179,6 +179,10 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
   const [height, setHeight] = useState(mountRef.current.height);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const panelRefsMap = useRef(new Map<string, TerminalPanelHandle>());
+  const [ctxMenu, setCtxMenu] = useState<{
+    text: string; x: number; y: number; sourceId: string;
+  } | null>(null);
 
   // ── Measure container for flat pixel layout ────────────────────────────
   useLayoutEffect(() => {
@@ -263,6 +267,24 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
     setRoot((prev) => doUpdateRatio(prev, splitId, ratio));
   }, []);
 
+  const handleTermContextMenu = useCallback(
+    (leafId: string, text: string, x: number, y: number) => {
+      setCtxMenu({ text, x, y, sourceId: leafId });
+    },
+    [],
+  );
+
+  const handleSendTo = useCallback(
+    (targetId: string) => {
+      const panel = panelRefsMap.current.get(targetId);
+      if (panel && ctxMenu) {
+        panel.writeText(ctxMenu.text);
+        setCtxMenu(null);
+      }
+    },
+    [ctxMenu],
+  );
+
   // ── Persist layout ─────────────────────────────────────────────────────
   useEffect(() => {
     const state: PersistedTerminalLayout = {
@@ -334,15 +356,58 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
                 </div>
               </div>
               <TerminalPanel
+                ref={(handle: TerminalPanelHandle | null) => {
+                  if (handle) panelRefsMap.current.set(leaf.id, handle);
+                  else panelRefsMap.current.delete(leaf.id);
+                }}
                 instanceId={leaf.id}
                 cwd={cwd}
                 shell={leaf.shell}
                 visible={visible}
                 active={leaf.id === activeId}
                 onFocus={() => setActiveId(leaf.id)}
+                onContextMenu={(text, x, y) => handleTermContextMenu(leaf.id, text, x, y)}
               />
             </div>
           ))}
+
+          {/* Send-to context menu */}
+          {ctxMenu && (() => {
+            const others = leaves.filter((l) => l.id !== ctxMenu.sourceId);
+            return (
+              <div
+                className="context-menu-overlay"
+                onClick={() => setCtxMenu(null)}
+                onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null); }}
+              >
+                <div
+                  className="context-menu"
+                  style={{ left: ctxMenu.x, top: ctxMenu.y }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div
+                    className="context-item"
+                    onClick={() => {
+                      navigator.clipboard.writeText(ctxMenu.text).catch(() => {});
+                      setCtxMenu(null);
+                    }}
+                  >
+                    Copy
+                  </div>
+                  {others.length > 0 && <div className="context-separator" />}
+                  {others.map((l) => (
+                    <div
+                      key={l.id}
+                      className="context-item"
+                      onClick={() => handleSendTo(l.id)}
+                    >
+                      Send to {l.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Draggable dividers */}
           {dividers.map((div) => (

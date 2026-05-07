@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { invoke } from "@tauri-apps/api/core";
@@ -21,15 +21,33 @@ interface TerminalPanelProps {
   shell?: string;
   active?: boolean;
   onFocus?: () => void;
+  onContextMenu?: (selectedText: string, x: number, y: number) => void;
 }
 
-export function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus }: TerminalPanelProps) {
+export interface TerminalPanelHandle {
+  writeText: (text: string) => void;
+}
+
+export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>(
+function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus, onContextMenu }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const termIdRef = useRef<number | null>(null);
   const unlistenOutRef = useRef<UnlistenFn | null>(null);
   const unlistenExitRef = useRef<UnlistenFn | null>(null);
+  const onContextMenuRef = useRef(onContextMenu);
+  useEffect(() => { onContextMenuRef.current = onContextMenu; });
+
+  useImperativeHandle(ref, () => ({
+    writeText: (text: string) => {
+      const id = termIdRef.current;
+      if (id === null) return;
+      const encoder = new TextEncoder();
+      const bytes = Array.from(encoder.encode(text));
+      invoke("terminal_write", { id, data: bytes }).catch(() => {});
+    },
+  }), []);
 
   const doFit = useCallback(() => {
     if (!fitRef.current || !termRef.current) return;
@@ -87,7 +105,29 @@ export function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus
     termRef.current = term;
 
     term.open(containerRef.current);
-    setTimeout(() => { try { fitAddon.fit(); } catch { /* ignore */ } }, 30);
+    try { fitAddon.fit(); } catch { /* ignore */ }
+    setTimeout(() => { try { fitAddon.fit(); } catch { /* ignore */ } }, 60);
+
+    term.attachCustomKeyEventHandler((e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === "v" && e.type === "keydown") {
+        invoke<string>("read_clipboard").then((text) => {
+          if (text) term.paste(text);
+        }).catch(() => {});
+        return false;
+      }
+      return true;
+    });
+
+    const el = containerRef.current;
+    const handleCtxMenu = (e: Event) => {
+      const me = e as MouseEvent;
+      me.preventDefault();
+      const selected = term.getSelection();
+      if (selected.trim()) {
+        onContextMenuRef.current?.(selected, me.clientX, me.clientY);
+      }
+    };
+    el.addEventListener("contextmenu", handleCtxMenu);
 
     const encoder = new TextEncoder();
     term.onData((data) => {
@@ -149,6 +189,7 @@ export function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus
 
     return () => {
       cancelled = true;
+      el.removeEventListener("contextmenu", handleCtxMenu);
       unlistenOutRef.current?.();
       unlistenExitRef.current?.();
       const id = termIdRef.current;
@@ -193,4 +234,4 @@ export function TerminalPanel({ instanceId, cwd, visible, shell, active, onFocus
       onMouseDown={onFocus}
     />
   );
-}
+});

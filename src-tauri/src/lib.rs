@@ -27,6 +27,14 @@ struct SearchMatch {
 }
 
 #[tauri::command]
+fn read_clipboard() -> Result<String, String> {
+    arboard::Clipboard::new()
+        .map_err(|e| e.to_string())?
+        .get_text()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn read_file_content(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
@@ -201,6 +209,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            read_clipboard,
             read_file_content,
             write_file_content,
             delete_file,
