@@ -66,8 +66,8 @@ pub fn git_status(repo_path: String) -> Result<Vec<GitStatusEntry>, String> {
             });
         }
 
-        // Unstaged entry
-        if worktree_status != " " {
+        // Unstaged entry (exclude untracked — handled separately below)
+        if worktree_status != " " && status_code != "??" {
             entries.push(GitStatusEntry {
                 path: path.clone(),
                 status: worktree_status.to_string(),
@@ -242,5 +242,43 @@ pub fn git_has_repo(path: String) -> Result<bool, String> {
     match run_git(&path, &["rev-parse", "--git-dir"]) {
         Ok(_) => Ok(true),
         Err(_) => Ok(false),
+    }
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct AheadBehind {
+    pub ahead: usize,
+    pub behind: usize,
+}
+
+#[tauri::command]
+pub fn git_ahead_behind(repo_path: String) -> Result<AheadBehind, String> {
+    // Returns (0, 0) if no tracking branch is set
+    let tracking = run_git(&repo_path, &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]);
+    if tracking.is_err() {
+        return Ok(AheadBehind { ahead: 0, behind: 0 });
+    }
+    match run_git(&repo_path, &["rev-list", "--left-right", "--count", "HEAD...@{u}"]) {
+        Ok(output) => {
+            let parts: Vec<&str> = output.trim().split_whitespace().collect();
+            if parts.len() == 2 {
+                Ok(AheadBehind {
+                    ahead: parts[0].parse().unwrap_or(0),
+                    behind: parts[1].parse().unwrap_or(0),
+                })
+            } else {
+                Ok(AheadBehind { ahead: 0, behind: 0 })
+            }
+        }
+        Err(_) => Ok(AheadBehind { ahead: 0, behind: 0 }),
+    }
+}
+
+#[tauri::command]
+pub fn git_discard(repo_path: String, file_path: String, untracked: bool) -> Result<(), String> {
+    if untracked {
+        run_git(&repo_path, &["clean", "-f", "--", &file_path]).map(|_| ())
+    } else {
+        run_git(&repo_path, &["checkout", "--", &file_path]).map(|_| ())
     }
 }

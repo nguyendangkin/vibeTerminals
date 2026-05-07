@@ -234,6 +234,8 @@ pub fn run() {
             git::git_remote_url,
             git::git_current_branch,
             git::git_has_repo,
+            git::git_ahead_behind,
+            git::git_discard,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

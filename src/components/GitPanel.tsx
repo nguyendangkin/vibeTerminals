@@ -12,325 +12,305 @@ interface GitBranch {
   current: boolean;
 }
 
+interface AheadBehind {
+  ahead: number;
+  behind: number;
+}
+
 interface GitPanelProps {
   rootPath: string | null;
 }
 
-function statusClass(s: string): string {
-  switch (s) {
-    case "M": return "git-status-modified";
-    case "A": return "git-status-added";
-    case "D": return "git-status-deleted";
-    case "R": return "git-status-renamed";
-    case "??": return "git-status-untracked";
-    default: return "";
-  }
+const STATUS_LABEL: Record<string, string> = {
+  M: "M", A: "A", D: "D", R: "R", C: "C", U: "U", "??": "U",
+};
+
+const STATUS_CLS: Record<string, string> = {
+  M: "git-s-modified",
+  A: "git-s-added",
+  D: "git-s-deleted",
+  R: "git-s-renamed",
+  C: "git-s-renamed",
+  U: "git-s-conflict",
+  "??": "git-s-untracked",
+};
+
+function basename(p: string) { return p.split(/[/\\]/).pop() ?? p; }
+function dirname(p: string) {
+  const idx = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+  return idx > 0 ? p.slice(0, idx) : "";
 }
 
 export function GitPanel({ rootPath }: GitPanelProps) {
   const [isRepo, setIsRepo] = useState(false);
   const [entries, setEntries] = useState<GitStatusEntry[]>([]);
-  const [branch, setBranch] = useState<string>("");
+  const [branch, setBranch] = useState("");
   const [branches, setBranches] = useState<GitBranch[]>([]);
+  const [aheadBehind, setAheadBehind] = useState<AheadBehind>({ ahead: 0, behind: 0 });
   const [commitMsg, setCommitMsg] = useState("");
-  const [diffText, setDiffText] = useState<string | null>(null);
-  const [diffFile, setDiffFile] = useState<string | null>(null);
+  const [selected, setSelected] = useState<{ path: string; staged: boolean } | null>(null);
+  const [diffLines, setDiffLines] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [log, setLog] = useState<string>(""); // status messages
+  const [msg, setMsg] = useState<{ text: string; error: boolean } | null>(null);
 
-  const refreshStatus = useCallback(async () => {
+  const toast = (text: string, error = false) => setMsg({ text, error });
+
+  const refresh = useCallback(async () => {
     if (!rootPath) return;
     try {
-      const repo: boolean = await invoke("git_has_repo", { path: rootPath });
+      const repo = await invoke<boolean>("git_has_repo", { path: rootPath });
       setIsRepo(repo);
       if (!repo) return;
-
-      const [statusEntries, currentBranch, allBranches] = await Promise.all([
+      const [sts, cur, brs, ab] = await Promise.all([
         invoke<GitStatusEntry[]>("git_status", { repoPath: rootPath }),
         invoke<string>("git_current_branch", { repoPath: rootPath }),
         invoke<GitBranch[]>("git_branch", { repoPath: rootPath }),
+        invoke<AheadBehind>("git_ahead_behind", { repoPath: rootPath }).catch(() => ({ ahead: 0, behind: 0 })),
       ]);
-      setEntries(statusEntries);
-      setBranch(currentBranch);
-      setBranches(allBranches);
-      setDiffText(null);
-      setDiffFile(null);
-    } catch (err) {
-      setLog(`Error: ${err}`);
-    }
+      setEntries(sts);
+      setBranch(cur);
+      setBranches(brs);
+      setAheadBehind(ab);
+    } catch (err) { toast(`${err}`, true); }
   }, [rootPath]);
 
-  useEffect(() => {
-    refreshStatus();
-  }, [refreshStatus]);
+  useEffect(() => { refresh(); }, [refresh]);
 
-  // Initial check when rootPath changes
-  useEffect(() => {
-    if (rootPath) {
-      invoke<boolean>("git_has_repo", { path: rootPath })
-        .then(setIsRepo)
-        .catch(() => setIsRepo(false));
-    } else {
-      setIsRepo(false);
-    }
-  }, [rootPath]);
-
-  const handleStage = async (file: string) => {
-    if (!rootPath) return;
+  const run = useCallback(async (fn: () => Promise<void>) => {
     setLoading(true);
+    try { await fn(); }
+    catch (err) { toast(`${err}`, true); }
+    finally { setLoading(false); }
+  }, []);
+
+  const stage = (file: string) => run(async () => {
+    await invoke("git_add", { repoPath: rootPath, files: [file] });
+    await refresh();
+  });
+
+  const unstage = (file: string) => run(async () => {
+    await invoke("git_unstage", { repoPath: rootPath, files: [file] });
+    await refresh();
+  });
+
+  const discard = (file: string, untracked: boolean) => run(async () => {
+    await invoke("git_discard", { repoPath: rootPath, filePath: file, untracked });
+    if (selected?.path === file) { setSelected(null); setDiffLines([]); }
+    await refresh();
+  });
+
+  const stageAll = () => run(async () => {
+    await invoke("git_add", { repoPath: rootPath, files: ["."] });
+    await refresh();
+  });
+
+  const unstageAll = () => run(async () => {
+    const files = staged.map(e => e.path);
+    if (files.length) { await invoke("git_unstage", { repoPath: rootPath, files }); await refresh(); }
+  });
+
+  const commit = () => run(async () => {
+    const m = commitMsg.trim();
+    if (!m) return;
+    const res = await invoke<string>("git_commit", { repoPath: rootPath, message: m });
+    toast(res.trim() || "Committed");
+    setCommitMsg("");
+    await refresh();
+  });
+
+  const push = () => run(async () => {
+    const res = await invoke<string>("git_push", { repoPath: rootPath });
+    toast(res.trim() || "Push successful");
+    await refresh();
+  });
+
+  const pull = () => run(async () => {
+    const res = await invoke<string>("git_pull", { repoPath: rootPath });
+    toast(res.trim() || "Pull successful");
+    await refresh();
+  });
+
+  const fetchRemote = () => run(async () => {
+    const res = await invoke<string>("git_fetch", { repoPath: rootPath });
+    toast(res.trim() || "Fetch done");
+    await refresh();
+  });
+
+  const checkout = (target: string) => run(async () => {
+    await invoke("git_checkout", { repoPath: rootPath, target });
+    await refresh();
+  });
+
+  const showDiff = async (file: string, isStaged: boolean) => {
+    setSelected({ path: file, staged: isStaged });
     try {
-      await invoke("git_add", { repoPath: rootPath, files: [file] });
-      await refreshStatus();
-    } catch (err) { setLog(`Error: ${err}`); }
-    setLoading(false);
+      const diff = await invoke<string>("git_diff_file", { repoPath: rootPath, filePath: file, staged: isStaged });
+      setDiffLines(diff.split("\n"));
+    } catch (err) { setDiffLines([`Error: ${err}`]); }
   };
 
-  const handleUnstage = async (file: string) => {
-    if (!rootPath) return;
-    setLoading(true);
-    try {
-      await invoke("git_unstage", { repoPath: rootPath, files: [file] });
-      await refreshStatus();
-    } catch (err) { setLog(`Error: ${err}`); }
-    setLoading(false);
-  };
+  const initRepo = () => run(async () => {
+    await invoke("git_init", { repoPath: rootPath });
+    await refresh();
+  });
 
-  const handleStageAll = async () => {
-    if (!rootPath) return;
-    setLoading(true);
-    try {
-      const files = entries.filter(e => !e.staged && e.status !== "??").map(e => e.path);
-      if (files.length > 0) {
-        await invoke("git_add", { repoPath: rootPath, files });
-        await refreshStatus();
-      }
-    } catch (err) { setLog(`Error: ${err}`); }
-    setLoading(false);
-  };
-
-  const handleUnstageAll = async () => {
-    if (!rootPath) return;
-    setLoading(true);
-    try {
-      const files = entries.filter(e => e.staged).map(e => e.path);
-      if (files.length > 0) {
-        await invoke("git_unstage", { repoPath: rootPath, files });
-        await refreshStatus();
-      }
-    } catch (err) { setLog(`Error: ${err}`); }
-    setLoading(false);
-  };
-
-  const handleCommit = async () => {
-    if (!rootPath || !commitMsg.trim()) return;
-    setLoading(true);
-    try {
-      const result: string = await invoke("git_commit", { repoPath: rootPath, message: commitMsg.trim() });
-      setLog(result.trim());
-      setCommitMsg("");
-      await refreshStatus();
-    } catch (err) { setLog(`Error: ${err}`); }
-    setLoading(false);
-  };
-
-  const handlePush = async () => {
-    if (!rootPath) return;
-    setLoading(true);
-    try {
-      const result: string = await invoke("git_push", { repoPath: rootPath });
-      setLog(result.trim() || "Push successful");
-      await refreshStatus();
-    } catch (err) { setLog(`Error: ${err}`); }
-    setLoading(false);
-  };
-
-  const handlePull = async () => {
-    if (!rootPath) return;
-    setLoading(true);
-    try {
-      const result: string = await invoke("git_pull", { repoPath: rootPath });
-      setLog(result.trim() || "Pull successful");
-      await refreshStatus();
-    } catch (err) { setLog(`Error: ${err}`); }
-    setLoading(false);
-  };
-
-  const handleFetch = async () => {
-    if (!rootPath) return;
-    setLoading(true);
-    try {
-      const result: string = await invoke("git_fetch", { repoPath: rootPath });
-      setLog(result.trim() || "Fetch successful");
-      await refreshStatus();
-    } catch (err) { setLog(`Error: ${err}`); }
-    setLoading(false);
-  };
-
-  const handleCheckout = async (target: string) => {
-    if (!rootPath) return;
-    setLoading(true);
-    try {
-      await invoke("git_checkout", { repoPath: rootPath, target });
-      await refreshStatus();
-    } catch (err) { setLog(`Error: ${err}`); }
-    setLoading(false);
-  };
-
-  const handleShowDiff = async (file: string, staged: boolean) => {
-    if (!rootPath) return;
-    try {
-      const diff: string = await invoke("git_diff_file", { repoPath: rootPath, filePath: file, staged });
-      setDiffText(diff);
-      setDiffFile(file);
-    } catch (err) { setLog(`Error: ${err}`); }
-  };
-
-  const handleInit = async () => {
-    if (!rootPath) return;
-    setLoading(true);
-    try {
-      await invoke("git_init", { repoPath: rootPath });
-      await refreshStatus();
-    } catch (err) { setLog(`Error: ${err}`); }
-    setLoading(false);
-  };
-
-  // Group entries
   const staged = entries.filter(e => e.staged);
   const unstaged = entries.filter(e => !e.staged);
 
   if (!rootPath) {
-    return <div className="git-panel-empty">Open a folder to use Git</div>;
+    return <div className="git-empty">Open a folder to use Git</div>;
   }
 
   if (!isRepo) {
     return (
-      <div className="git-panel-empty">
+      <div className="git-empty">
         <p>Not a Git repository</p>
-        <button className="git-btn" onClick={handleInit}>Initialize Repository</button>
+        <button className="git-btn" onClick={initRepo}>Initialize Repository</button>
       </div>
     );
   }
 
   return (
     <div className="git-panel">
-      {/* Branch info & actions */}
+
+      {/* ── Branch & remote ───────────────────────────────────── */}
       <div className="git-section">
-        <div className="git-section-header">
+        <div className="git-branch-row">
           <span className="git-branch-icon">⎇</span>
           <select
             className="git-branch-select"
             value={branch}
-            onChange={(e) => handleCheckout(e.target.value)}
+            onChange={e => checkout(e.target.value)}
+            disabled={loading}
           >
-            {branches.map((b) => (
-              <option key={b.name} value={b.name}>
-                {b.name} {b.current ? "(current)" : ""}
-              </option>
+            {branches.map(b => (
+              <option key={b.name} value={b.name}>{b.name}</option>
             ))}
           </select>
+          {(aheadBehind.ahead > 0 || aheadBehind.behind > 0) && (
+            <span className="git-sync-badges">
+              {aheadBehind.behind > 0 && <span className="git-badge-behind">↓{aheadBehind.behind}</span>}
+              {aheadBehind.ahead > 0 && <span className="git-badge-ahead">↑{aheadBehind.ahead}</span>}
+            </span>
+          )}
         </div>
-        <div className="git-actions-row">
-          <button className="git-btn" onClick={handleFetch} disabled={loading}>Fetch</button>
-          <button className="git-btn" onClick={handlePull} disabled={loading}>Pull</button>
-          <button className="git-btn" onClick={handlePush} disabled={loading}>Push</button>
+        <div className="git-remote-row">
+          <button className="git-btn" onClick={fetchRemote} disabled={loading}>Fetch</button>
+          <button className="git-btn" onClick={pull} disabled={loading}>Pull</button>
+          <button className="git-btn" onClick={push} disabled={loading}>Push</button>
         </div>
       </div>
 
-      {/* Staged changes */}
-      {staged.length > 0 && (
-        <div className="git-section">
-          <div className="git-section-header">
-            <span className="git-section-title">Staged Changes</span>
-            <button className="git-link-btn" onClick={handleUnstageAll}>Unstage All</button>
-          </div>
-          {staged.map((e) => (
+      {/* ── Commit ────────────────────────────────────────────── */}
+      <div className="git-section">
+        <textarea
+          className="git-commit-input"
+          placeholder="Message (Ctrl+Enter to commit)"
+          value={commitMsg}
+          onChange={e => setCommitMsg(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commit(); }
+          }}
+          rows={3}
+        />
+        <button
+          className="git-btn git-btn-commit"
+          disabled={loading || !commitMsg.trim() || staged.length === 0}
+          onClick={commit}
+        >
+          Commit to {branch || "HEAD"}
+        </button>
+      </div>
+
+      {/* ── Staged changes ────────────────────────────────────── */}
+      <div className="git-section">
+        <div className="git-section-header">
+          <span className="git-section-title">Staged Changes ({staged.length})</span>
+          {staged.length > 0 && (
+            <button className="git-hdr-btn" title="Unstage All" onClick={unstageAll}>↩ All</button>
+          )}
+        </div>
+        {staged.length === 0
+          ? <div className="git-section-empty">No staged changes</div>
+          : staged.map(e => (
             <div
               key={`s-${e.path}`}
-              className={`git-file-row ${diffFile === e.path ? "git-file-selected" : ""}`}
-              onClick={() => handleShowDiff(e.path, true)}
+              className={`git-file-row${selected?.path === e.path && selected.staged ? " git-file-selected" : ""}`}
+              onClick={() => showDiff(e.path, true)}
             >
-              <span className={`git-status-badge ${statusClass(e.status)}`}>{e.status}</span>
-              <span className="git-file-name">{e.path}</span>
-              <button
-                className="git-link-btn"
-                onClick={(ev) => { ev.stopPropagation(); handleUnstage(e.path); }}
-              >−</button>
+              <span className={`git-badge ${STATUS_CLS[e.status] ?? ""}`}>{STATUS_LABEL[e.status] ?? e.status}</span>
+              <span className="git-file-name" title={e.path}>{basename(e.path)}</span>
+              {dirname(e.path) && <span className="git-file-dir">{dirname(e.path)}</span>}
+              <div className="git-file-btns">
+                <button className="git-icon-btn" title="Unstage" onClick={ev => { ev.stopPropagation(); unstage(e.path); }}>↩</button>
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        }
+      </div>
 
-      {/* Unstaged changes */}
-      {unstaged.length > 0 && (
-        <div className="git-section">
-          <div className="git-section-header">
-            <span className="git-section-title">Changes</span>
-            <button className="git-link-btn" onClick={handleStageAll}>Stage All</button>
-          </div>
-          {unstaged.map((e) => (
+      {/* ── Unstaged changes ──────────────────────────────────── */}
+      <div className="git-section">
+        <div className="git-section-header">
+          <span className="git-section-title">Changes ({unstaged.length})</span>
+          {unstaged.length > 0 && (
+            <button className="git-hdr-btn" title="Stage All" onClick={stageAll}>+ All</button>
+          )}
+        </div>
+        {unstaged.length === 0
+          ? <div className="git-section-empty">No changes</div>
+          : unstaged.map(e => (
             <div
               key={`u-${e.path}`}
-              className={`git-file-row ${diffFile === e.path && !e.staged ? "git-file-selected" : ""}`}
-              onClick={() => handleShowDiff(e.path, false)}
+              className={`git-file-row${selected?.path === e.path && !selected.staged ? " git-file-selected" : ""}`}
+              onClick={() => showDiff(e.path, false)}
             >
-              <span className={`git-status-badge ${statusClass(e.status)}`}>{e.status}</span>
-              <span className="git-file-name">{e.path}</span>
-              <button
-                className="git-link-btn"
-                onClick={(ev) => { ev.stopPropagation(); handleStage(e.path); }}
-              >+</button>
+              <span className={`git-badge ${STATUS_CLS[e.status] ?? ""}`}>{STATUS_LABEL[e.status] ?? e.status}</span>
+              <span className="git-file-name" title={e.path}>{basename(e.path)}</span>
+              {dirname(e.path) && <span className="git-file-dir">{dirname(e.path)}</span>}
+              <div className="git-file-btns">
+                <button
+                  className="git-icon-btn git-icon-btn-danger"
+                  title="Discard Changes"
+                  onClick={ev => { ev.stopPropagation(); discard(e.path, e.status === "??"); }}
+                >↺</button>
+                <button className="git-icon-btn" title="Stage" onClick={ev => { ev.stopPropagation(); stage(e.path); }}>+</button>
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        }
+      </div>
 
-      {/* Commit */}
-      {entries.length > 0 && (
-        <div className="git-section">
-          <textarea
-            className="git-commit-input"
-            placeholder="Commit message..."
-            value={commitMsg}
-            onChange={(e) => setCommitMsg(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                handleCommit();
-              }
-            }}
-            rows={3}
-          />
-          <button
-            className="git-btn git-btn-commit"
-            disabled={loading || !commitMsg.trim() || staged.length === 0}
-            onClick={handleCommit}
-          >
-            Commit
-          </button>
-        </div>
-      )}
-
-      {/* Diff view */}
-      {diffText && (
+      {/* ── Diff view ─────────────────────────────────────────── */}
+      {selected && (
         <div className="git-section">
           <div className="git-section-header">
-            <span className="git-section-title">Diff: {diffFile}</span>
-            <button className="git-link-btn" onClick={() => { setDiffText(null); setDiffFile(null); }}>Close</button>
+            <span className="git-section-title">
+              {basename(selected.path)} · {selected.staged ? "staged" : "working tree"}
+            </span>
+            <button className="git-hdr-btn" onClick={() => { setSelected(null); setDiffLines([]); }}>✕</button>
           </div>
-          <pre className="git-diff-view">{diffText}</pre>
+          <div className="git-diff-view">
+            {diffLines.map((line, i) => {
+              let cls = "git-diff-line";
+              if (line.startsWith("+") && !line.startsWith("+++")) cls += " git-diff-add";
+              else if (line.startsWith("-") && !line.startsWith("---")) cls += " git-diff-del";
+              else if (line.startsWith("@@")) cls += " git-diff-hunk";
+              return <div key={i} className={cls}>{line || "\u00A0"}</div>;
+            })}
+          </div>
         </div>
       )}
 
-      {/* Log */}
-      {log && (
-        <div className="git-log" onClick={() => setLog("")}>
-          {log}
+      {/* ── Message toast ─────────────────────────────────────── */}
+      {msg && (
+        <div className={`git-message${msg.error ? " git-message-error" : ""}`} onClick={() => setMsg(null)}>
+          {msg.text}
         </div>
       )}
 
       {entries.length === 0 && !loading && (
-        <div className="git-panel-empty">No changes. Working tree clean.</div>
+        <div className="git-clean">Working tree clean</div>
       )}
     </div>
   );
