@@ -4,7 +4,6 @@ import { EditorTab, DirEntry, Project, WorkspaceState, type Note } from "./types
 import { TabBar } from "./components/TabBar";
 import { EditorPanel } from "./components/EditorPanel";
 import { FileTree } from "./components/FileTree";
-import { SearchPanel } from "./components/SearchPanel";
 import { CommandPalette } from "./components/CommandPalette";
 import { GitPanel } from "./components/GitPanel";
 import { NoteList } from "./components/NoteList";
@@ -30,6 +29,8 @@ interface PersistedState {
   activeProjectId: string | null;
   workspaces: Record<string, PersistedWorkspace>;
   projectTopTabs?: Record<string, TopTab | null>;
+  notes?: Record<string, Note[]>;
+  noteFilters?: Record<string, "task" | "prompt">;
 }
 
 function emptyWorkspace(): WorkspaceState {
@@ -41,6 +42,8 @@ function App() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [workspaces, setWorkspaces] = useState<Record<string, WorkspaceState>>({});
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, Note[]>>({});
+  const [noteFilter, setNoteFilter] = useState<Record<string, "task" | "prompt">>({});
 
   // Derived from active project/workspace
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
@@ -50,16 +53,14 @@ function App() {
   const rootPath = activeProject?.path ?? null;
   const fileTree = activeProject?.fileTree ?? [];
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null;
+  const activeNotes = activeProjectId ? (notes[activeProjectId] ?? []) : [];
+  const activeNoteFilter = activeProjectId ? (noteFilter[activeProjectId] ?? "task") : "task";
 
   // ── ui state ──────────────────────────────────────────────────────────────
   const [topTab, setTopTab] = useState<TopTab | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [resizingSidebar, setResizingSidebar] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
-
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [noteFilter, setNoteFilter] = useState<"task" | "prompt">("task");
 
   const showTerminal = topTab === "terminal";
   const terminalReloadRef = useRef<Map<string, () => void>>(new Map());
@@ -68,7 +69,6 @@ function App() {
 
   const shellRef = useRef<HTMLDivElement>(null);
   const hasRestoredRef = useRef(false);
-  const hasRestoredNotesRef = useRef(false);
   const projectTopTabsRef = useRef<Record<string, TopTab | null>>({});
   const dirtyContentRef = useRef<Map<string, string>>(new Map());
   const getDirtyContent = useCallback((tabId: string) => dirtyContentRef.current.get(tabId), []);
@@ -127,15 +127,8 @@ function App() {
         }
         setTopTab(projectTopTabsRef.current[validActiveId] ?? "explorer");
       }
-      // Load notes
-      try {
-        const notesRaw = localStorage.getItem("tertito_notes");
-        if (notesRaw) {
-          const parsed = JSON.parse(notesRaw);
-          if (Array.isArray(parsed)) setNotes(parsed);
-        }
-      } catch { /* ignore */ }
-      hasRestoredNotesRef.current = true;
+      if (saved.notes) setNotes(saved.notes);
+      if (saved.noteFilters) setNoteFilter(saved.noteFilters);
 
       hasRestoredRef.current = true;
     }
@@ -157,18 +150,11 @@ function App() {
         ])
       ),
       projectTopTabs: projectTopTabsRef.current,
+      notes,
+      noteFilters: noteFilter,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [projects, workspaces, activeProjectId, topTab]);
-
-  // Persist notes (debounced)
-  useEffect(() => {
-    if (!hasRestoredNotesRef.current) return;
-    const id = setTimeout(() => {
-      localStorage.setItem("tertito_notes", JSON.stringify(notes));
-    }, 400);
-    return () => clearTimeout(id);
-  }, [notes]);
+  }, [projects, workspaces, activeProjectId, topTab, notes, noteFilter]);
 
   // ── workspace helpers ─────────────────────────────────────────────────────
   const updateWorkspace = useCallback((pid: string, fn: (ws: WorkspaceState) => WorkspaceState) => {
@@ -228,11 +214,32 @@ function App() {
     const idx = projects.findIndex((p) => p.id === projectId);
     const remaining = projects.filter((p) => p.id !== projectId);
     setProjects(remaining);
+
+    let closingTabIds: string[] = [];
     setWorkspaces((prev) => {
+      const ws = prev[projectId];
+      if (ws) closingTabIds = ws.tabs.map((t) => t.id);
       const next = { ...prev };
       delete next[projectId];
       return next;
     });
+    closingTabIds.forEach((id) => dirtyContentRef.current.delete(id));
+
+    setNotes((prev) => {
+      const next = { ...prev };
+      delete next[projectId];
+      return next;
+    });
+    setNoteFilter((prev) => {
+      const next = { ...prev };
+      delete next[projectId];
+      return next;
+    });
+
+    terminalReloadRef.current.delete(projectId);
+    terminalShellRef.current.delete(projectId);
+    localStorage.removeItem(`tertito_terminal_${projectId}`);
+
     if (activeProjectId === projectId) {
       const fallback = remaining[Math.min(idx, remaining.length - 1)];
       setActiveProjectId(fallback?.id ?? null);
@@ -334,20 +341,30 @@ function App() {
 
   // ── note actions ────────────────────────────────────────────────────────────
   const handleAddNote = useCallback((type: "task" | "prompt") => {
+    if (!activeProjectId) return;
     const now = Date.now();
     const id = `note_${now}_${Math.random().toString(36).slice(2, 8)}`;
     const note: Note = { id, title: "", content: "", type, createdAt: now, updatedAt: now };
-    setNotes((prev) => [note, ...prev]);
-    setNoteFilter(type);
-  }, []);
+    setNotes((prev) => ({ ...prev, [activeProjectId]: [note, ...(prev[activeProjectId] ?? [])] }));
+    setNoteFilter((prev) => ({ ...prev, [activeProjectId]: type }));
+  }, [activeProjectId]);
 
   const handleUpdateNote = useCallback((id: string, updates: Partial<Pick<Note, "title" | "content">>) => {
-    setNotes((prev) => prev.map((n) => n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n));
-  }, []);
+    if (!activeProjectId) return;
+    setNotes((prev) => ({
+      ...prev,
+      [activeProjectId]: (prev[activeProjectId] ?? []).map((n) =>
+        n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n),
+    }));
+  }, [activeProjectId]);
 
   const handleDeleteNote = useCallback((id: string) => {
-    setNotes((prev) => prev.filter((n) => n.id !== id));
-  }, []);
+    if (!activeProjectId) return;
+    setNotes((prev) => ({
+      ...prev,
+      [activeProjectId]: (prev[activeProjectId] ?? []).filter((n) => n.id !== id),
+    }));
+  }, [activeProjectId]);
 
   // ── sidebar resize ────────────────────────────────────────────────────────
   const handleResizeStart = useCallback((e: RMouseEvent) => {
@@ -385,7 +402,6 @@ function App() {
     const shift = e.shiftKey;
     const key = e.key.toLowerCase();
     if (ctrl && shift && key === "p") { e.preventDefault(); setShowPalette(true); return; }
-    if (ctrl && shift && key === "f") { e.preventDefault(); setShowSearch(true); return; }
     if (ctrl && shift && key === "g") { e.preventDefault(); handleToggleGit(); return; }
     if (ctrl && shift && key === "e") { e.preventDefault(); handleTopTab("explorer"); return; }
     if (ctrl && shift && key === "n") { e.preventDefault(); handleTopTab("note"); return; }
@@ -418,7 +434,6 @@ function App() {
     { id: "save", label: "Save File", shortcut: "Ctrl+S", action: handleSaveFile },
     { id: "new-tab", label: "New Tab", shortcut: "Ctrl+N", action: handleNewTab },
     { id: "close-tab", label: "Close Tab", shortcut: "Ctrl+W", action: () => activeTabId && handleCloseTab(activeTabId) },
-    { id: "search", label: "Search in Files", shortcut: "Ctrl+Shift+F", action: () => setShowSearch(true) },
     { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => handleTopTab("terminal") },
     { id: "git-panel", label: "Source Control", shortcut: "Ctrl+Shift+G", action: handleToggleGit },
     { id: "note-panel", label: "Notes Panel", shortcut: "Ctrl+Shift+N", action: () => handleTopTab("note") },
@@ -487,8 +502,10 @@ function App() {
             <>
               <div className="sidebar" style={{ width: sidebarWidth }}>
                 <NoteList
-                  activeFilter={noteFilter}
-                  onFilterChange={setNoteFilter}
+                  activeFilter={activeNoteFilter}
+                  onFilterChange={(f) => {
+                    if (activeProjectId) setNoteFilter((prev) => ({ ...prev, [activeProjectId]: f }));
+                  }}
                 />
               </div>
               <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
@@ -500,12 +517,12 @@ function App() {
             <div className="main-area">
               {topTab === "note" ? (
                 (() => {
-                  const filtered = notes.filter((n) => n.type === noteFilter);
+                  const filtered = activeNotes.filter((n) => n.type === activeNoteFilter);
                   return (
                     <div className="note-list-panel">
                       <div className="note-list-panel-header">
-                        <span>{noteFilter === "task" ? "Task Notes" : "Prompt Notes"}</span>
-                        <button className="note-add-btn" onClick={() => handleAddNote(noteFilter)}>
+                        <span>{activeNoteFilter === "task" ? "Task Notes" : "Prompt Notes"}</span>
+                        <button className="note-add-btn" onClick={() => handleAddNote(activeNoteFilter)}>
                           + Add Note
                         </button>
                       </div>
@@ -531,14 +548,6 @@ function App() {
                   <WelcomeScreen />
                 ) : (
                   <>
-                    {showSearch && (
-                      <SearchPanel
-                        rootPath={rootPath}
-                        onOpenFile={(p) => { openFileInTab(p); setShowSearch(false); }}
-                        onClose={() => setShowSearch(false)}
-                      />
-                    )}
-
                     <TabBar
                       tabs={tabs}
                       activeTabId={activeTabId}
@@ -582,7 +591,7 @@ function App() {
                 cwd={p.path}
                 visible={active}
                 fullscreen
-                notes={notes}
+                notes={notes[p.id] ?? []}
                 onToggleVisible={() => { if (activeProjectId) projectTopTabsRef.current[activeProjectId] = null; setTopTab(null); }}
                 onRegisterReload={(fn) => { terminalReloadRef.current.set(p.id, fn); }}
                 globalShell={terminalShellRef.current.get(p.id) ?? "powershell"}

@@ -72,35 +72,33 @@ interface PersistedTerminalLayout {
 
 const terminalStorageKey = (pid: string) => `tertito_terminal_${pid}`;
 
-function seedNodeCounter(node: PaneNode): void {
+function seedNodeCounter(node: PaneNode, counter: React.MutableRefObject<number>): void {
   const n = parseInt(node.id.replace(/^(term_|split_)/, ""));
-  if (!isNaN(n) && n > nodeCounter) nodeCounter = n;
-  if (node.type === "split") { seedNodeCounter(node.a); seedNodeCounter(node.b); }
+  if (!isNaN(n) && n > counter.current) counter.current = n;
+  if (node.type === "split") { seedNodeCounter(node.a, counter); seedNodeCounter(node.b, counter); }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-let nodeCounter = 0;
-
-function makeLeaf(nameCounter: React.MutableRefObject<number>, shell: string): TerminalLeaf {
-  const id = ++nodeCounter;
+function makeLeaf(nodeCounter: React.MutableRefObject<number>, nameCounter: React.MutableRefObject<number>, shell: string): TerminalLeaf {
+  const id = ++nodeCounter.current;
   const n = ++nameCounter.current;
   const label = shell === "cmd" ? "CMD" : shell === "pwsh" ? "PS Core" : "PowerShell";
   return { type: "leaf", id: `term_${id}`, name: `${label} ${n}`, shell };
 }
 
-function makeSplitId(): string { return `split_${++nodeCounter}`; }
+function makeSplitId(nodeCounter: React.MutableRefObject<number>): string { return `split_${++nodeCounter.current}`; }
 
 // ── Tree operations ────────────────────────────────────────────────────────
 
-function doSplit(root: PaneNode, leafId: string, dir: "row" | "col", newLeaf: TerminalLeaf): PaneNode {
+function doSplit(root: PaneNode, leafId: string, dir: "row" | "col", newLeaf: TerminalLeaf, nodeCounter: React.MutableRefObject<number>): PaneNode {
   if (root.type === "leaf") {
     if (root.id !== leafId) return root;
-    return { type: "split", id: makeSplitId(), dir, ratio: 0.5, a: root, b: newLeaf };
+    return { type: "split", id: makeSplitId(nodeCounter), dir, ratio: 0.5, a: root, b: newLeaf };
   }
-  const newA = doSplit(root.a, leafId, dir, newLeaf);
+  const newA = doSplit(root.a, leafId, dir, newLeaf, nodeCounter);
   if (newA !== root.a) return { ...root, a: newA };
-  const newB = doSplit(root.b, leafId, dir, newLeaf);
+  const newB = doSplit(root.b, leafId, dir, newLeaf, nodeCounter);
   if (newB !== root.b) return { ...root, b: newB };
   return root;
 }
@@ -181,18 +179,19 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
   // Notes are only read when the context menu opens, so stale closure is impossible.
   const notesRef = useRef(notes);
   useEffect(() => { notesRef.current = notes; }, [notes]);
+  const nodeCounterRef = useRef(0);
   const mountRef = useRef<{ root: PaneNode; activeId: string; nameCounter: number; height: number; lastCommands: Record<string, string>; restoredShell?: string } | null>(null);
   if (mountRef.current === null) {
     const saved = localStorage.getItem(terminalStorageKey(projectId));
     if (saved) {
       try {
         const parsed: PersistedTerminalLayout = JSON.parse(saved);
-        seedNodeCounter(parsed.root);
+        seedNodeCounter(parsed.root, nodeCounterRef);
         mountRef.current = { root: parsed.root, activeId: parsed.activeId, nameCounter: parsed.nameCounter, height: parsed.height, lastCommands: parsed.lastCommands ?? {}, restoredShell: parsed.globalShell };
       } catch { /* fall through */ }
     }
     if (mountRef.current === null) {
-      const id = `term_${++nodeCounter}`;
+      const id = `term_${++nodeCounterRef.current}`;
       mountRef.current = { root: { type: "leaf", id, name: "PowerShell 1", shell: "powershell" }, activeId: id, nameCounter: 1, height: 260, lastCommands: {} };
     }
   }
@@ -280,8 +279,8 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
   // ── Pane actions ──────────────────────────────────────────────────────
   const handleSplitH = useCallback(
     (leafId: string) => {
-      const leaf = makeLeaf(instCounter, globalShell);
-      setRoot((prev) => doSplit(prev, leafId, "row", leaf));
+      const leaf = makeLeaf(nodeCounterRef, instCounter, globalShell);
+      setRoot((prev) => doSplit(prev, leafId, "row", leaf, nodeCounterRef));
       setActiveId(leaf.id);
     },
     [globalShell],
@@ -289,8 +288,8 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
 
   const handleSplitV = useCallback(
     (leafId: string) => {
-      const leaf = makeLeaf(instCounter, globalShell);
-      setRoot((prev) => doSplit(prev, leafId, "col", leaf));
+      const leaf = makeLeaf(nodeCounterRef, instCounter, globalShell);
+      setRoot((prev) => doSplit(prev, leafId, "col", leaf, nodeCounterRef));
       setActiveId(leaf.id);
     },
     [globalShell],
@@ -303,7 +302,7 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
         onToggleVisible();
         return;
       }
-      setRoot((prev) => doClose(prev, leafId) ?? makeLeaf(instCounter, globalShell));
+      setRoot((prev) => doClose(prev, leafId) ?? makeLeaf(nodeCounterRef, instCounter, globalShell));
       setActiveId((prev) => (prev !== leafId ? prev : ids.find((id) => id !== leafId) ?? ""));
     },
     [root, globalShell, onToggleVisible],
@@ -630,5 +629,6 @@ export const TerminalContainer = React.memo(TerminalContainerImpl, (prev, next) 
   prev.cwd === next.cwd &&
   prev.visible === next.visible &&
   prev.fullscreen === next.fullscreen &&
-  prev.globalShell === next.globalShell
+  prev.globalShell === next.globalShell &&
+  prev.notes === next.notes
 );
