@@ -18,12 +18,6 @@ let projectCounter = 0;
 
 const STORAGE_KEY = "tertito_persist";
 
-const LANG_MAP: Record<string, string> = {
-  js: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
-  json: "json", html: "html", htm: "html", css: "css",
-  rs: "rust", py: "python", md: "markdown", xml: "xml",
-};
-
 interface PersistedWorkspace {
   tabPaths: string[];
   activeTabPath: string | null;
@@ -71,6 +65,8 @@ function App() {
   const shellRef = useRef<HTMLDivElement>(null);
   const hasRestoredRef = useRef(false);
   const projectTopTabsRef = useRef<Record<string, TopTab | null>>({});
+  const dirtyContentRef = useRef<Map<string, string>>(new Map());
+  const getDirtyContent = useCallback((tabId: string) => dirtyContentRef.current.get(tabId), []);
 
   // ── persist / restore ────────────────────────────────────────────────────
   useEffect(() => {
@@ -106,8 +102,7 @@ function App() {
           try { content = await invoke<string>("read_file_content", { path: tabPath }); }
           catch { continue; }
           const fileName = tabPath.split(/[\/\\]/).pop() ?? "untitled";
-          const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
-          const tab: EditorTab = { id: `tab_${++tabCounter}`, title: fileName, path: tabPath, content, dirty: false, language: LANG_MAP[ext] ?? "plaintext" };
+          const tab: EditorTab = { id: `tab_${++tabCounter}`, title: fileName, path: tabPath, content, dirty: false, language: "plaintext" };
           tabs.push(tab);
           if (tabPath === pw.activeTabPath) activeTabId = tab.id;
         }
@@ -186,8 +181,7 @@ function App() {
     try {
       const content = await invoke<string>("read_file_content", { path: filePath });
       const fileName = filePath.split(/[/\\]/).pop() ?? "untitled";
-      const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
-      const tab = createTab(fileName, filePath, content, LANG_MAP[ext] ?? "plaintext");
+      const tab = createTab(fileName, filePath, content, "plaintext");
       updateWorkspace(activeProjectId, (w) => ({ ...w, tabs: [...w.tabs, tab], activeTabId: tab.id }));
     } catch (err) { console.error("Failed to open file:", err); }
   }, [activeProjectId, workspaces, createTab, updateWorkspace]);
@@ -228,6 +222,7 @@ function App() {
       updateWorkspace(activeProjectId, (ws) => {
         const nextTabs = ws.tabs.filter((t) => t.path !== path);
         const deletedId = ws.tabs.find((t) => t.path === path)?.id;
+        if (deletedId) dirtyContentRef.current.delete(deletedId);
         const idx = ws.tabs.findIndex((t) => t.id === deletedId);
         return {
           ...ws,
@@ -264,16 +259,22 @@ function App() {
 
   const handleCloseTab = useCallback((id: string) => {
     if (!activeProjectId) return;
-    updateWorkspace(activeProjectId, (ws) => {
-      const idx = ws.tabs.findIndex((t) => t.id === id);
-      const next = ws.tabs.filter((t) => t.id !== id);
+    const ws = workspaces[activeProjectId] ?? emptyWorkspace();
+    const closingTab = ws.tabs.find((t) => t.id === id);
+    if (closingTab?.dirty) {
+      if (!confirm(`"${closingTab.title}" has unsaved changes. Close anyway?`)) return;
+    }
+    dirtyContentRef.current.delete(id);
+    updateWorkspace(activeProjectId, (w) => {
+      const idx = w.tabs.findIndex((t) => t.id === id);
+      const next = w.tabs.filter((t) => t.id !== id);
       return {
-        ...ws,
+        ...w,
         tabs: next,
-        activeTabId: ws.activeTabId === id ? (next[Math.min(idx, next.length - 1)]?.id ?? null) : ws.activeTabId,
+        activeTabId: w.activeTabId === id ? (next[Math.min(idx, next.length - 1)]?.id ?? null) : w.activeTabId,
       };
     });
-  }, [activeProjectId, updateWorkspace]);
+  }, [activeProjectId, workspaces, updateWorkspace]);
 
   const handleSaveFile = useCallback(async () => {
     if (!activeTab || !activeProjectId) return;
@@ -284,7 +285,9 @@ function App() {
       if (!savePath) return;
     }
     try {
-      await invoke("write_file_content", { path: savePath, content: activeTab.content });
+      const content = dirtyContentRef.current.get(activeTab.id) ?? activeTab.content;
+      await invoke("write_file_content", { path: savePath, content });
+      dirtyContentRef.current.delete(activeTab.id);
       updateWorkspace(activeProjectId, (ws) => ({
         ...ws,
         tabs: ws.tabs.map((t) =>
@@ -298,9 +301,10 @@ function App() {
 
   const handleContentChange = useCallback((content: string) => {
     if (!activeProjectId || !activeTabId) return;
+    dirtyContentRef.current.set(activeTabId, content);
     updateWorkspace(activeProjectId, (ws) => ({
       ...ws,
-      tabs: ws.tabs.map((t) => t.id === activeTabId ? { ...t, content, dirty: true } : t),
+      tabs: ws.tabs.map((t) => t.id === activeTabId ? { ...t, dirty: true } : t),
     }));
   }, [activeProjectId, activeTabId, updateWorkspace]);
 
@@ -471,7 +475,11 @@ function App() {
                 />
 
                 <div className="editor-area">
-                  <EditorPanel tab={activeTab} onChange={handleContentChange} />
+                  <EditorPanel
+                    tab={activeTab}
+                    getDirtyContent={getDirtyContent}
+                    onChange={handleContentChange}
+                  />
                 </div>
               </>
             )}
