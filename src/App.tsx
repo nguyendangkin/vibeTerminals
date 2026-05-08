@@ -1,12 +1,14 @@
 import { useState, useCallback, useEffect, useRef, type MouseEvent as RMouseEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { EditorTab, DirEntry, Project, WorkspaceState } from "./types";
+import { EditorTab, DirEntry, Project, WorkspaceState, type Note } from "./types";
 import { TabBar } from "./components/TabBar";
 import { EditorPanel } from "./components/EditorPanel";
 import { FileTree } from "./components/FileTree";
 import { SearchPanel } from "./components/SearchPanel";
 import { CommandPalette } from "./components/CommandPalette";
 import { GitPanel } from "./components/GitPanel";
+import { NoteList } from "./components/NoteList";
+import { NoteCard } from "./components/NoteCard";
 import { ProjectBar } from "./components/ProjectBar";
 import { TopBar, type TopTab } from "./components/TopBar";
 import { TerminalContainer } from "./components/TerminalContainer";
@@ -56,6 +58,9 @@ function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
 
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [noteFilter, setNoteFilter] = useState<"task" | "prompt">("task");
+
   const showTerminal = topTab === "terminal";
   const terminalReloadRef = useRef<Map<string, () => void>>(new Map());
   const terminalShellRef = useRef<Map<string, string>>(new Map());
@@ -63,6 +68,7 @@ function App() {
 
   const shellRef = useRef<HTMLDivElement>(null);
   const hasRestoredRef = useRef(false);
+  const hasRestoredNotesRef = useRef(false);
   const projectTopTabsRef = useRef<Record<string, TopTab | null>>({});
   const dirtyContentRef = useRef<Map<string, string>>(new Map());
   const getDirtyContent = useCallback((tabId: string) => dirtyContentRef.current.get(tabId), []);
@@ -121,6 +127,16 @@ function App() {
         }
         setTopTab(projectTopTabsRef.current[validActiveId] ?? "explorer");
       }
+      // Load notes
+      try {
+        const notesRaw = localStorage.getItem("tertito_notes");
+        if (notesRaw) {
+          const parsed = JSON.parse(notesRaw);
+          if (Array.isArray(parsed)) setNotes(parsed);
+        }
+      } catch { /* ignore */ }
+      hasRestoredNotesRef.current = true;
+
       hasRestoredRef.current = true;
     }
     restore();
@@ -144,6 +160,15 @@ function App() {
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [projects, workspaces, activeProjectId, topTab]);
+
+  // Persist notes (debounced)
+  useEffect(() => {
+    if (!hasRestoredNotesRef.current) return;
+    const id = setTimeout(() => {
+      localStorage.setItem("tertito_notes", JSON.stringify(notes));
+    }, 400);
+    return () => clearTimeout(id);
+  }, [notes]);
 
   // ── workspace helpers ─────────────────────────────────────────────────────
   const updateWorkspace = useCallback((pid: string, fn: (ws: WorkspaceState) => WorkspaceState) => {
@@ -307,6 +332,23 @@ function App() {
     }));
   }, [activeProjectId, activeTabId, updateWorkspace]);
 
+  // ── note actions ────────────────────────────────────────────────────────────
+  const handleAddNote = useCallback((type: "task" | "prompt") => {
+    const now = Date.now();
+    const id = `note_${now}_${Math.random().toString(36).slice(2, 8)}`;
+    const note: Note = { id, title: "", content: "", type, createdAt: now, updatedAt: now };
+    setNotes((prev) => [note, ...prev]);
+    setNoteFilter(type);
+  }, []);
+
+  const handleUpdateNote = useCallback((id: string, updates: Partial<Pick<Note, "title" | "content">>) => {
+    setNotes((prev) => prev.map((n) => n.id === id ? { ...n, ...updates, updatedAt: Date.now() } : n));
+  }, []);
+
+  const handleDeleteNote = useCallback((id: string) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
   // ── sidebar resize ────────────────────────────────────────────────────────
   const handleResizeStart = useCallback((e: RMouseEvent) => {
     e.preventDefault(); setResizingSidebar(true);
@@ -346,6 +388,7 @@ function App() {
     if (ctrl && shift && key === "f") { e.preventDefault(); setShowSearch(true); return; }
     if (ctrl && shift && key === "g") { e.preventDefault(); handleToggleGit(); return; }
     if (ctrl && shift && key === "e") { e.preventDefault(); handleTopTab("explorer"); return; }
+    if (ctrl && shift && key === "n") { e.preventDefault(); handleTopTab("note"); return; }
     if (ctrl && key === "tab") {
       e.preventDefault();
       if (tabs.length < 2) return;
@@ -378,6 +421,7 @@ function App() {
     { id: "search", label: "Search in Files", shortcut: "Ctrl+Shift+F", action: () => setShowSearch(true) },
     { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => handleTopTab("terminal") },
     { id: "git-panel", label: "Source Control", shortcut: "Ctrl+Shift+G", action: handleToggleGit },
+    { id: "note-panel", label: "Notes Panel", shortcut: "Ctrl+Shift+N", action: () => handleTopTab("note") },
   ];
 
   // ── render ────────────────────────────────────────────────────────────────
@@ -413,7 +457,7 @@ function App() {
         />
 
         <div className="content-area" style={topTab === "terminal" ? { display: "none" } : undefined}>
-          {/* Sidebar: only for explorer */}
+          {/* Sidebar: explorer */}
           {topTab === "explorer" && (
             <>
               <div className="sidebar" style={{ width: sidebarWidth }}>
@@ -438,37 +482,80 @@ function App() {
             </>
           )}
 
-          {/* Editor area: explorer (with sidebar) or collapsed (full-width) */}
-          {(topTab === "explorer" || topTab === null) && (
+          {/* Sidebar: note */}
+          {topTab === "note" && (
+            <>
+              <div className="sidebar" style={{ width: sidebarWidth }}>
+                <NoteList
+                  activeFilter={noteFilter}
+                  onFilterChange={setNoteFilter}
+                />
+              </div>
+              <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
+            </>
+          )}
+
+          {/* Editor area: explorer / note / none */}
+          {(topTab === "explorer" || topTab === null || topTab === "note") && (
             <div className="main-area">
-              {tabs.length === 0 ? (
-                <WelcomeScreen />
+              {topTab === "note" ? (
+                (() => {
+                  const filtered = notes.filter((n) => n.type === noteFilter);
+                  return (
+                    <div className="note-list-panel">
+                      <div className="note-list-panel-header">
+                        <span>{noteFilter === "task" ? "Task Notes" : "Prompt Notes"}</span>
+                        <button className="note-add-btn" onClick={() => handleAddNote(noteFilter)}>
+                          + Add Note
+                        </button>
+                      </div>
+                      {filtered.length === 0 ? (
+                        <div className="note-list-empty">No notes yet</div>
+                      ) : (
+                        <div className="note-cards">
+                          {filtered.map((note) => (
+                            <NoteCard
+                              key={note.id}
+                              note={note}
+                              onUpdate={handleUpdateNote}
+                              onDelete={handleDeleteNote}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
-                <>
-                  {showSearch && (
-                    <SearchPanel
-                      rootPath={rootPath}
-                      onOpenFile={(p) => { openFileInTab(p); setShowSearch(false); }}
-                      onClose={() => setShowSearch(false)}
-                    />
-                  )}
+                tabs.length === 0 ? (
+                  <WelcomeScreen />
+                ) : (
+                  <>
+                    {showSearch && (
+                      <SearchPanel
+                        rootPath={rootPath}
+                        onOpenFile={(p) => { openFileInTab(p); setShowSearch(false); }}
+                        onClose={() => setShowSearch(false)}
+                      />
+                    )}
 
-                  <TabBar
-                    tabs={tabs}
-                    activeTabId={activeTabId}
-                    onSelectTab={setActiveTabId}
-                    onCloseTab={handleCloseTab}
-                    onNewTab={handleNewTab}
-                  />
-
-                  <div className="editor-area">
-                    <EditorPanel
-                      tab={activeTab}
-                      getDirtyContent={getDirtyContent}
-                      onChange={handleContentChange}
+                    <TabBar
+                      tabs={tabs}
+                      activeTabId={activeTabId}
+                      onSelectTab={setActiveTabId}
+                      onCloseTab={handleCloseTab}
+                      onNewTab={handleNewTab}
                     />
-                  </div>
-                </>
+
+                    <div className="editor-area">
+                      <EditorPanel
+                        tab={activeTab}
+                        getDirtyContent={getDirtyContent}
+                        onChange={handleContentChange}
+                      />
+                    </div>
+                  </>
+                )
               )}
             </div>
           )}
@@ -495,6 +582,7 @@ function App() {
                 cwd={p.path}
                 visible={active}
                 fullscreen
+                notes={notes}
                 onToggleVisible={() => { if (activeProjectId) projectTopTabsRef.current[activeProjectId] = null; setTopTab(null); }}
                 onRegisterReload={(fn) => { terminalReloadRef.current.set(p.id, fn); }}
                 globalShell={terminalShellRef.current.get(p.id) ?? "powershell"}

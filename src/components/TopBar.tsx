@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type TopTab = "terminal" | "explorer" | "git";
+export type TopTab = "terminal" | "explorer" | "git" | "note";
 
 interface TopBarProps {
   activeTab: TopTab | null;
@@ -40,6 +40,16 @@ const TABS: { id: TopTab; label: string; icon: ReactNode }[] = [
         <path d="M6 8.5v7"/>
         <path d="M8.5 9a5.5 5.5 0 0 1 5.5-2.5"/>
         <path d="M18 11.5v1a5.5 5.5 0 0 1-5.5 5.5H9.5"/>
+      </svg>
+    ),
+  },
+  {
+    id: "note",
+    label: "Notes",
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M12 20h9"/>
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
       </svg>
     ),
   },

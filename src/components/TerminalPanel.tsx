@@ -28,6 +28,7 @@ interface TerminalPanelProps {
 
 export interface TerminalPanelHandle {
   writeText: (text: string) => void;
+  sendCommand: (text: string) => void;
   reload: () => void;
   getLastCommand: () => string;
 }
@@ -157,6 +158,13 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
         termRef.current.paste(text);
       }
     },
+    sendCommand: (text: string) => {
+      const id = termIdRef.current;
+      if (id !== null) {
+        const bytes = Array.from(new TextEncoder().encode(text + "\r"));
+        invoke("terminal_write", { id, data: bytes }).catch(() => {});
+      }
+    },
     reload,
     getLastCommand: () => lastCommandRef.current,
   }), [reload]);
@@ -241,9 +249,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
       const me = e as MouseEvent;
       me.preventDefault();
       const selected = term.getSelection();
-      if (selected.trim()) {
-        onContextMenuRef.current?.(selected, me.clientX, me.clientY);
-      }
+      onContextMenuRef.current?.(selected, me.clientX, me.clientY);
     };
     el.addEventListener("contextmenu", handleCtxMenu);
 

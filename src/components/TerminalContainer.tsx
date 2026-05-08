@@ -7,6 +7,7 @@ import React, {
   useEffect,
   type MouseEvent as RMouseEvent,
 } from "react";
+import type { Note } from "../types";
 import { TerminalPanel, type TerminalPanelHandle } from "./TerminalPanel";
 
 // ── Utils ────────────────────────────────────────────────────────────────────
@@ -168,13 +169,18 @@ interface TerminalContainerProps {
   cwd: string | null;
   visible: boolean;
   fullscreen?: boolean;
+  notes?: Note[];
   onToggleVisible: () => void;
   onRegisterReload?: (fn: () => void) => void;
   globalShell: string;
   onShellChange?: (shell: string) => void;
 }
 
-export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggleVisible, onRegisterReload, globalShell, onShellChange }: TerminalContainerProps) {
+function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onToggleVisible, onRegisterReload, globalShell, onShellChange }: TerminalContainerProps) {
+  // Keep notes in a ref so note edits don't re-render the terminal tree.
+  // Notes are only read when the context menu opens, so stale closure is impossible.
+  const notesRef = useRef(notes);
+  useEffect(() => { notesRef.current = notes; }, [notes]);
   const mountRef = useRef<{ root: PaneNode; activeId: string; nameCounter: number; height: number; lastCommands: Record<string, string>; restoredShell?: string } | null>(null);
   if (mountRef.current === null) {
     const saved = localStorage.getItem(terminalStorageKey(projectId));
@@ -209,6 +215,13 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
   const [ctxMenu, setCtxMenu] = useState<{
     text: string; x: number; y: number; sourceId: string;
   } | null>(null);
+  const [submenuType, setSubmenuType] = useState<"task" | "prompt" | null>(null);
+  const [submenuPos, setSubmenuPos] = useState({ x: 0, y: 0 });
+  const submenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (submenuTimerRef.current) clearTimeout(submenuTimerRef.current);
+  }, []);
 
   const handleCommandChange = useCallback((leafId: string, cmd: string) => {
     setLastCommands((prev) => {
@@ -329,6 +342,18 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
     [ctxMenu],
   );
 
+  const handleNoteSend = useCallback(
+    (note: Note) => {
+      const panel = panelRefsMap.current.get(ctxMenu?.sourceId ?? "");
+      if (panel) {
+        panel.sendCommand(note.content);
+      }
+      setCtxMenu(null);
+      setSubmenuType(null);
+    },
+    [ctxMenu],
+  );
+
   // ── Persist layout (debounced) ──────────────────────────────────────────
   useEffect(() => {
     const state: PersistedTerminalLayout = {
@@ -435,40 +460,116 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
             </div>
           ))}
 
-          {/* Send-to context menu */}
+          {/* Context menu */}
           {ctxMenu && (() => {
+            const hasSelection = ctxMenu.text.trim().length > 0;
             const others = leaves.filter((l) => l.id !== ctxMenu.sourceId);
+            const taskNotes = (notesRef.current ?? []).filter((n) => n.type === "task");
+            const promptNotes = (notesRef.current ?? []).filter((n) => n.type === "prompt");
+            const hasNotes = taskNotes.length > 0 || promptNotes.length > 0;
+            const closeAll = () => { setCtxMenu(null); setSubmenuType(null); };
+            const noteTypes = [
+              { type: "task" as const, label: "Task Note", items: taskNotes },
+              { type: "prompt" as const, label: "Prompt Note", items: promptNotes },
+            ].filter(({ items }) => items.length > 0);
+
+            // Don't show menu if nothing to show
+            if (!hasSelection && !hasNotes) return null;
+
             return (
               <div
                 className="context-menu-overlay"
-                onClick={() => setCtxMenu(null)}
-                onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null); }}
+                onClick={closeAll}
+                onContextMenu={(e) => { e.preventDefault(); closeAll(); }}
               >
                 <div
                   className="context-menu"
                   style={{ left: ctxMenu.x, top: ctxMenu.y }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div
-                    className="context-item"
-                    onClick={() => {
-                      navigator.clipboard.writeText(ctxMenu.text).catch(() => {});
-                      setCtxMenu(null);
-                    }}
-                  >
-                    Copy
-                  </div>
-                  {others.length > 0 && <div className="context-separator" />}
-                  {others.map((l) => (
+                  {hasSelection && (
+                    <>
+                      <div
+                        className="context-item"
+                        onClick={() => {
+                          navigator.clipboard.writeText(ctxMenu.text).catch(() => {});
+                          closeAll();
+                        }}
+                      >
+                        Copy
+                      </div>
+                      {others.length > 0 && <div className="context-separator" />}
+                      {others.map((l) => (
+                        <div
+                          key={l.id}
+                          className="context-item"
+                          onClick={() => handleSendTo(l.id)}
+                        >
+                          Send to {l.name}
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {!hasSelection && noteTypes.map(({ type, label, items }) => (
                     <div
-                      key={l.id}
-                      className="context-item"
-                      onClick={() => handleSendTo(l.id)}
+                      key={type}
+                      className="context-item context-item-has-submenu"
+                      onMouseEnter={(e) => {
+                        if (items.length === 0) return;
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        // Clamp submenu within viewport
+                        const subW = 180;
+                        const subH = Math.min(items.length * 28 + 8, 300);
+                        const x = rect.right + subW > window.innerWidth ? rect.left - subW : rect.right;
+                        const y = rect.top + subH > window.innerHeight ? window.innerHeight - subH - 8 : rect.top;
+                        setSubmenuType(type);
+                        setSubmenuPos({ x: Math.max(0, x), y: Math.max(0, y) });
+                      }}
+                      onMouseLeave={() => {
+                        submenuTimerRef.current = setTimeout(() => {
+                          submenuTimerRef.current = null;
+                          setSubmenuType((prev) => prev === type ? null : prev);
+                        }, 200);
+                      }}
                     >
-                      Send to {l.name}
+                      <span>{label}</span>
+                      <span className="context-submenu-arrow">&#x25B8;</span>
                     </div>
                   ))}
                 </div>
+
+                {/* Submenu */}
+                {submenuType && (
+                  <div
+                    className="context-menu context-submenu"
+                    style={{ left: submenuPos.x, top: submenuPos.y }}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseEnter={() => {
+                      if (submenuTimerRef.current) {
+                        clearTimeout(submenuTimerRef.current);
+                        submenuTimerRef.current = null;
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      submenuTimerRef.current = setTimeout(() => {
+                        submenuTimerRef.current = null;
+                        setSubmenuType(null);
+                      }, 200);
+                    }}
+                  >
+                    {(notesRef.current ?? [])
+                      .filter((n) => n.type === submenuType)
+                      .map((note) => (
+                        <div
+                          key={note.id}
+                          className="context-item"
+                          onClick={() => handleNoteSend(note)}
+                        >
+                          {note.title || "Untitled"}
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -523,3 +624,11 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
     </>
   );
 }
+
+export const TerminalContainer = React.memo(TerminalContainerImpl, (prev, next) =>
+  prev.projectId === next.projectId &&
+  prev.cwd === next.cwd &&
+  prev.visible === next.visible &&
+  prev.fullscreen === next.fullscreen &&
+  prev.globalShell === next.globalShell
+);

@@ -25,3 +25,12 @@ export interface WorkspaceState {
   tabs: EditorTab[];
   activeTabId: string | null;
 }
+
+export interface Note {
+  id: string;
+  title: string;
+  content: string;
+  type: "task" | "prompt";
+  createdAt: number;
+  updatedAt: number;
+}
