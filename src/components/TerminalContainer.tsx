@@ -341,6 +341,21 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
     [ctxMenu],
   );
 
+  const handleGetOutputFrom = useCallback(
+    (fromLeafId: string) => {
+      const fromPanel = panelRefsMap.current.get(fromLeafId);
+      const toPanel = panelRefsMap.current.get(ctxMenu?.sourceId ?? "");
+      if (fromPanel && toPanel) {
+        const output = fromPanel.getLastOutput();
+        if (output) {
+          toPanel.writeText(output);
+        }
+      }
+      setCtxMenu(null);
+    },
+    [ctxMenu],
+  );
+
   const handleNoteSend = useCallback(
     (note: Note) => {
       const panel = panelRefsMap.current.get(ctxMenu?.sourceId ?? "");
@@ -466,6 +481,7 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
             const taskNotes = (notesRef.current ?? []).filter((n) => n.type === "task");
             const promptNotes = (notesRef.current ?? []).filter((n) => n.type === "prompt");
             const hasNotes = taskNotes.length > 0 || promptNotes.length > 0;
+            const hasOthers = others.length > 0;
             const closeAll = () => { setCtxMenu(null); setSubmenuType(null); };
             const noteTypes = [
               { type: "task" as const, label: "Task Note", items: taskNotes },
@@ -473,7 +489,7 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
             ].filter(({ items }) => items.length > 0);
 
             // Don't show menu if nothing to show
-            if (!hasSelection && !hasNotes) return null;
+            if (!hasSelection && !hasNotes && !hasOthers) return null;
 
             return (
               <div
@@ -505,6 +521,20 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
                           onClick={() => handleSendTo(l.id)}
                         >
                           Send to {l.name}
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {hasOthers && (
+                    <>
+                      {(hasSelection || noteTypes.length > 0) && <div className="context-separator" />}
+                      {others.map((l) => (
+                        <div
+                          key={`out-${l.id}`}
+                          className="context-item"
+                          onClick={() => handleGetOutputFrom(l.id)}
+                        >
+                          Get output from {l.name}
                         </div>
                       ))}
                     </>

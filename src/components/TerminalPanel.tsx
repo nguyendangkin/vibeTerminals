@@ -31,6 +31,7 @@ export interface TerminalPanelHandle {
   sendCommand: (text: string) => void;
   reload: () => void;
   getLastCommand: () => string;
+  getLastOutput: () => string;
 }
 
 export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>(
@@ -49,6 +50,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
 
   const inputBufferRef = useRef<string>("");
   const lastCommandRef = useRef<string>("");
+  const lastCommandLineRef = useRef<number | null>(null);
   const inEscapeRef = useRef(false);
 
   // Keep latest cwd/shell in refs so reload always picks up current values
@@ -140,6 +142,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
 
   const reload = useCallback(() => {
     const cmd = lastCommandRef.current;
+    lastCommandLineRef.current = null;
 
     connectPty().then(async (newId) => {
       if (newId === null || !cmd) return;
@@ -167,6 +170,21 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
     },
     reload,
     getLastCommand: () => lastCommandRef.current,
+    getLastOutput: () => {
+      const term = termRef.current;
+      const startLine = lastCommandLineRef.current;
+      if (!term || startLine === null) return "";
+      const buffer = term.buffer.active;
+      const endLine = buffer.baseY + buffer.cursorY;
+      const lines: string[] = [];
+      for (let y = startLine; y <= endLine; y++) {
+        const line = buffer.getLine(y);
+        if (line) {
+          lines.push(line.translateToString());
+        }
+      }
+      return lines.join("\n");
+    },
   }), [reload]);
 
   const doFit = useCallback(() => {
@@ -285,6 +303,10 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
           if (inputBufferRef.current.trim()) {
             lastCommandRef.current = inputBufferRef.current.trim();
             onCommandChangeRef.current?.(lastCommandRef.current);
+            const t = termRef.current;
+            if (t) {
+              lastCommandLineRef.current = t.buffer.active.baseY + t.buffer.active.cursorY;
+            }
           }
           inputBufferRef.current = "";
         } else if (ch === '\x7f' || ch === '\x08') {
