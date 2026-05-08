@@ -10,14 +10,8 @@ interface FileTreeProps {
 }
 
 function getIcon(entry: DirEntry, expanded: boolean): string {
-  if (entry.is_dir) return expanded ? "📂" : "📁";
-  const ext = entry.name.split(".").pop()?.toLowerCase();
-  const icons: Record<string, string> = {
-    ts: "🟦", tsx: "⚛️", js: "🟨", jsx: "⚛️", json: "📋",
-    html: "🌐", htm: "🌐", css: "🎨",
-    rs: "🦀", py: "🐍", md: "📝", xml: "📰", svg: "🖼️",
-  };
-  return icons[ext || ""] || "📄";
+  if (entry.is_dir) return expanded ? "▾" : "▸";
+  return "";
 }
 
 interface TreeNodeProps {
@@ -138,7 +132,7 @@ export function FileTree({ rootPath, tree, onOpenFile, onDeleteEntry, onRenameEn
     <div className="filetree">
       <div className="tree-node">
         <div className="tree-row tree-root">
-          <span className="tree-icon">📁</span>
+          <span className="tree-icon">▾</span>
           <span className="tree-name">{rootName}</span>
         </div>
         <div className="tree-children">

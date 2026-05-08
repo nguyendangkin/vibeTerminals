@@ -747,6 +747,7 @@ body,
   font-size: 12px;
   user-select: none;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .tab-item.active {

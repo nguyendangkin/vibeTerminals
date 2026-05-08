@@ -418,15 +418,6 @@ function App() {
           {sidebarVisible && (
             <>
               <div className="sidebar" style={{ width: sidebarWidth }}>
-                <div className="sidebar-header">
-                  <span className="sidebar-header-title">
-                    {topTab === "explorer" ? "Explorer" : "Source Control"}
-                  </span>
-                  {topTab === "explorer" && activeProject && (
-                    <span className="sidebar-header-project">{activeProject.name}</span>
-                  )}
-                </div>
-
                 {topTab === "explorer" && (
                   activeProject ? (
                     <FileTree
