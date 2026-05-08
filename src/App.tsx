@@ -56,7 +56,6 @@ function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
 
-  const sidebarVisible = topTab === "explorer" || topTab === "git";
   const showTerminal = topTab === "terminal";
   const terminalReloadRef = useRef<Map<string, () => void>>(new Map());
   const terminalShellRef = useRef<Map<string, string>>(new Map());
@@ -414,67 +413,72 @@ function App() {
         />
 
         <div className="content-area" style={topTab === "terminal" ? { display: "none" } : undefined}>
-          {/* Sidebar (explorer / git) */}
-          {sidebarVisible && (
+          {/* Sidebar: only for explorer */}
+          {topTab === "explorer" && (
             <>
               <div className="sidebar" style={{ width: sidebarWidth }}>
-                {topTab === "explorer" && (
-                  activeProject ? (
-                    <FileTree
-                      rootPath={rootPath}
-                      tree={fileTree}
-                      onOpenFile={openFileInTab}
-                      onDeleteEntry={handleDeleteEntry}
-                      onRenameEntry={handleRenameEntry}
-                    />
-                  ) : (
-                    <div className="project-empty-state">
-                      <p>No folder opened</p>
-                      <button className="project-open-btn" onClick={handleAddProject}>
-                        Open Folder
-                      </button>
-                    </div>
-                  )
+                {activeProject ? (
+                  <FileTree
+                    rootPath={rootPath}
+                    tree={fileTree}
+                    onOpenFile={openFileInTab}
+                    onDeleteEntry={handleDeleteEntry}
+                    onRenameEntry={handleRenameEntry}
+                  />
+                ) : (
+                  <div className="project-empty-state">
+                    <p>No folder opened</p>
+                    <button className="project-open-btn" onClick={handleAddProject}>
+                      Open Folder
+                    </button>
+                  </div>
                 )}
-
-                {topTab === "git" && <GitPanel rootPath={rootPath} />}
               </div>
               <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
             </>
           )}
 
-          {/* Main editor area */}
-          <div className="main-area">
-            {tabs.length === 0 ? (
-              <WelcomeScreen />
-            ) : (
-              <>
-                {showSearch && (
-                  <SearchPanel
-                    rootPath={rootPath}
-                    onOpenFile={(p) => { openFileInTab(p); setShowSearch(false); }}
-                    onClose={() => setShowSearch(false)}
-                  />
-                )}
+          {/* Editor area: explorer (with sidebar) or collapsed (full-width) */}
+          {(topTab === "explorer" || topTab === null) && (
+            <div className="main-area">
+              {tabs.length === 0 ? (
+                <WelcomeScreen />
+              ) : (
+                <>
+                  {showSearch && (
+                    <SearchPanel
+                      rootPath={rootPath}
+                      onOpenFile={(p) => { openFileInTab(p); setShowSearch(false); }}
+                      onClose={() => setShowSearch(false)}
+                    />
+                  )}
 
-                <TabBar
-                  tabs={tabs}
-                  activeTabId={activeTabId}
-                  onSelectTab={setActiveTabId}
-                  onCloseTab={handleCloseTab}
-                  onNewTab={handleNewTab}
-                />
-
-                <div className="editor-area">
-                  <EditorPanel
-                    tab={activeTab}
-                    getDirtyContent={getDirtyContent}
-                    onChange={handleContentChange}
+                  <TabBar
+                    tabs={tabs}
+                    activeTabId={activeTabId}
+                    onSelectTab={setActiveTabId}
+                    onCloseTab={handleCloseTab}
+                    onNewTab={handleNewTab}
                   />
-                </div>
-              </>
-            )}
-          </div>
+
+                  <div className="editor-area">
+                    <EditorPanel
+                      tab={activeTab}
+                      getDirtyContent={getDirtyContent}
+                      onChange={handleContentChange}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Git: full-width panel, no editor */}
+          {topTab === "git" && (
+            <div className="git-panel">
+              <GitPanel rootPath={rootPath} />
+            </div>
+          )}
         </div>
 
         {/* Per-project terminals — always mounted, hidden via CSS when inactive.
