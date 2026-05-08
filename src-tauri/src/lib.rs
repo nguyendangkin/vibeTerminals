@@ -1,4 +1,3 @@
-mod git;
 mod terminal;
 
 use regex::Regex;
@@ -233,29 +232,6 @@ pub fn run() {
             terminal::terminal_resize,
             terminal::terminal_kill,
             terminal::terminal_list,
-            git::git_status,
-            git::git_diff,
-            git::git_diff_file,
-            git::git_log,
-            git::git_add,
-            git::git_unstage,
-            git::git_commit,
-            git::git_push,
-            git::git_pull,
-            git::git_fetch,
-            git::git_branch,
-            git::git_create_branch,
-            git::git_checkout,
-            git::git_stash,
-            git::git_stash_pop,
-            git::git_stash_list,
-            git::git_init,
-            git::git_remote_url,
-            git::git_current_branch,
-            git::git_has_repo,
-            git::git_ahead_behind,
-            git::git_discard,
-            git::git_log_graph,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
