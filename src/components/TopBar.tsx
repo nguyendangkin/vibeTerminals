@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export type TopTab = "terminal" | "explorer" | "git" | "note";
 
@@ -56,6 +57,23 @@ const TABS: { id: TopTab; label: string; icon: ReactNode }[] = [
 ];
 
 export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlobalShellChange }: TopBarProps) {
+  const appWindow = getCurrentWindow();
+  const [maximized, setMaximized] = useState(false);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    async function setup() {
+      const m = await appWindow.isMaximized();
+      if (!cancelled) setMaximized(m);
+      unlisten = await appWindow.onResized(() => {
+        appWindow.isMaximized().then((v) => { if (!cancelled) setMaximized(v); });
+      });
+    }
+    setup();
+    return () => { cancelled = true; unlisten?.(); };
+  }, []);
+
   return (
     <div className="top-bar">
       <div className="top-bar-tabs">
@@ -71,6 +89,7 @@ export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlob
           </button>
         ))}
       </div>
+      <div className="top-bar-drag-spacer" data-tauri-drag-region />
       <div className="top-bar-actions">
         {activeTab === "terminal" && onGlobalShellChange && (
           <select
@@ -96,6 +115,43 @@ export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlob
             </svg>
           </button>
         )}
+        <div className="window-controls">
+          <button
+            className="window-btn window-minimize"
+            onClick={() => appWindow.minimize()}
+            title="Minimize"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10">
+              <rect x="0.5" y="4.5" width="9" height="1" fill="currentColor"/>
+            </svg>
+          </button>
+          <button
+            className="window-btn window-maximize"
+            onClick={() => appWindow.toggleMaximize()}
+            title={maximized ? "Restore" : "Maximize"}
+          >
+            {maximized ? (
+              <svg width="10" height="10" viewBox="0 0 10 10">
+                <rect x="1.5" y="0.5" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1"/>
+                <rect x="0.5" y="2.5" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1"/>
+              </svg>
+            ) : (
+              <svg width="10" height="10" viewBox="0 0 10 10">
+                <rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1"/>
+              </svg>
+            )}
+          </button>
+          <button
+            className="window-btn window-close"
+            onClick={() => appWindow.close()}
+            title="Close"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10">
+              <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" strokeWidth="1"/>
+              <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" strokeWidth="1"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -109,6 +109,12 @@ body,
   gap: 2px;
 }
 
+.top-bar-drag-spacer {
+  flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
+}
+
 .top-tab {
   display: flex;
   align-items: center;
@@ -163,7 +169,37 @@ body,
   display: flex;
   align-items: center;
   gap: 6px;
-  padding-right: 4px;
+}
+
+/* ─── Window Controls ──────────────────────────────────────────────────── */
+.window-controls {
+  display: flex;
+  align-items: stretch;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.window-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.window-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.window-close:hover {
+  background: #c42b1c;
+  color: #fff;
 }
 
 .top-bar-shell-select {
