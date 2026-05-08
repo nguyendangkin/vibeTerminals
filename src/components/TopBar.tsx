@@ -6,6 +6,8 @@ interface TopBarProps {
   activeTab: TopTab | null;
   onTabClick: (tab: TopTab) => void;
   onReloadAll?: () => void;
+  globalShell?: string;
+  onGlobalShellChange?: (shell: string) => void;
 }
 
 const TABS: { id: TopTab; label: string; icon: ReactNode }[] = [
@@ -43,7 +45,7 @@ const TABS: { id: TopTab; label: string; icon: ReactNode }[] = [
   },
 ];
 
-export function TopBar({ activeTab, onTabClick, onReloadAll }: TopBarProps) {
+export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlobalShellChange }: TopBarProps) {
   return (
     <div className="top-bar">
       <div className="top-bar-tabs">
@@ -59,18 +61,32 @@ export function TopBar({ activeTab, onTabClick, onReloadAll }: TopBarProps) {
           </button>
         ))}
       </div>
-      {activeTab === "terminal" && onReloadAll && (
-        <button
-          className="top-bar-reload-btn"
-          onClick={onReloadAll}
-          title="Rerun last commands in all terminals"
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-            <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-          </svg>
-        </button>
-      )}
+      <div className="top-bar-actions">
+        {activeTab === "terminal" && onGlobalShellChange && (
+          <select
+            className="top-bar-shell-select"
+            value={globalShell ?? "powershell"}
+            onChange={(e) => onGlobalShellChange(e.target.value)}
+            title="Shell for new terminals"
+          >
+            <option value="powershell">PowerShell</option>
+            <option value="cmd">CMD</option>
+            <option value="pwsh">PS Core</option>
+          </select>
+        )}
+        {activeTab === "terminal" && onReloadAll && (
+          <button
+            className="top-bar-reload-btn"
+            onClick={onReloadAll}
+            title="Rerun last commands in all terminals"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+              <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+            </svg>
+          </button>
+        )}
+      </div>
     </div>
   );
 }

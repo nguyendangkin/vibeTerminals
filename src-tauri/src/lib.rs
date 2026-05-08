@@ -232,6 +232,7 @@ pub fn run() {
             terminal::terminal_write,
             terminal::terminal_resize,
             terminal::terminal_kill,
+            terminal::terminal_list,
             git::git_status,
             git::git_diff,
             git::git_diff_file,

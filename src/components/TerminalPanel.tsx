@@ -56,16 +56,20 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
   useEffect(() => { cwdRef.current = cwd; });
   useEffect(() => { shellRef.current = shell; });
 
-  // Epoch counter to cancel stale connectPty calls on rapid reload
-  const connectEpochRef = useRef(0);
+  // AbortController to cancel in-flight connectPty on rapid reload / unmount
+  const abortRef = useRef<AbortController | null>(null);
 
   // Connect to a PTY: kill old session, spawn a new one, set up event listeners.
-  // Returns the new terminal ID, or null on failure / if superseded by a newer call.
+  // Returns the new terminal ID, or null on failure / if superseded.
   const connectPty = useCallback(async (): Promise<number | null> => {
     const term = termRef.current;
     if (!term) return null;
 
-    const epoch = ++connectEpochRef.current;
+    // Abort any previous in-flight connectPty
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const { signal } = controller;
 
     // Clean up old listeners
     unlistenOutRef.current?.();
@@ -80,7 +84,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
       termIdRef.current = null;
     }
 
-    if (epoch !== connectEpochRef.current) return null; // superseded
+    if (signal.aborted) return null;
 
     try {
       const id: number = await invoke("terminal_spawn", {
@@ -90,8 +94,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
         shell: shellRef.current ?? undefined,
       });
 
-      if (epoch !== connectEpochRef.current) {
-        // Superseded while spawning — clean up and abort
+      if (signal.aborted) {
         invoke("terminal_kill", { id }).catch(() => {});
         return null;
       }
@@ -110,8 +113,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
         }
       });
 
-      if (epoch !== connectEpochRef.current) {
-        // Superseded after listener setup — clean up
+      if (signal.aborted) {
         unOut();
         unExit();
         invoke("terminal_kill", { id }).catch(() => {});
@@ -121,11 +123,16 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
       unlistenOutRef.current = unOut;
       unlistenExitRef.current = unExit;
 
-      setTimeout(() => { try { fitRef.current?.fit(); } catch { /* ignore */ } }, 60);
+      // Progressive retries to fit after spawn — container layout may take a few frames
+      for (const delay of [0, 16, 50, 150]) {
+        setTimeout(() => { try { fitRef.current?.fit(); } catch { /* ignore */ } }, delay);
+      }
 
       return id;
     } catch (err) {
-      term.writeln(`\r\n\x1b[31m[Failed to start terminal: ${err}]\x1b[0m`);
+      if (!signal.aborted) {
+        term.writeln(`\r\n\x1b[31m[Failed to start terminal: ${err}]\x1b[0m`);
+      }
       return null;
     }
   }, []);
@@ -133,8 +140,11 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
   const reload = useCallback(() => {
     const cmd = lastCommandRef.current;
 
-    connectPty().then((newId) => {
+    connectPty().then(async (newId) => {
       if (newId === null || !cmd) return;
+
+      // Brief delay to let the shell finish startup before sending the command
+      await new Promise((r) => setTimeout(r, 300));
 
       const bytes = Array.from(new TextEncoder().encode(cmd + "\r"));
       invoke("terminal_write", { id: newId, data: bytes }).catch(() => {});
@@ -208,7 +218,9 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
 
     term.open(containerRef.current);
     try { fitAddon.fit(); } catch { /* ignore */ }
-    setTimeout(() => { try { fitAddon.fit(); } catch { /* ignore */ } }, 60);
+    for (const delay of [0, 16, 50, 150]) {
+      setTimeout(() => { try { fitAddon.fit(); } catch { /* ignore */ } }, delay);
+    }
 
     if (initialCommand) {
       lastCommandRef.current = initialCommand;
@@ -271,6 +283,10 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
           inputBufferRef.current = "";
         } else if (ch === '\x7f' || ch === '\x08') {
           inputBufferRef.current = inputBufferRef.current.slice(0, -1);
+        } else if (ch === '\x17') {
+          inputBufferRef.current = inputBufferRef.current.replace(/\S+\s*$/, "");
+        } else if (ch === '\x15') {
+          inputBufferRef.current = "";
         } else if (ch === '\x03') {
           inputBufferRef.current = "";
         } else if (ch === '\x1b') {
@@ -288,20 +304,18 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
     term.onBinary((data) => {
       const id = termIdRef.current;
       if (id === null) return;
-      const bytes = Array.from(data.split("").map((c) => c.charCodeAt(0)));
+      const len = data.length;
+      const bytes = new Array<number>(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = data.charCodeAt(i);
+      }
       invoke("terminal_write", { id, data: bytes }).catch(() => {});
     });
 
-    let cancelled = false;
-
-    connectPty().then((id) => {
-      if (cancelled && id !== null) {
-        invoke("terminal_kill", { id }).catch(() => {});
-      }
-    });
+    connectPty();
 
     return () => {
-      cancelled = true;
+      abortRef.current?.abort();
       el.removeEventListener("contextmenu", handleCtxMenu);
       el.removeEventListener("paste", handlePaste, true);
       el.removeEventListener("mousedown", handleMiddleClick);
@@ -322,13 +336,17 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
     }
   }, [visible, doFit]);
 
-  // ResizeObserver for container size changes
+  // ResizeObserver for container size changes (debounced)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => doFit());
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const ro = new ResizeObserver(() => {
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => { timer = null; doFit(); }, 100);
+    });
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => { ro.disconnect(); if (timer !== null) clearTimeout(timer); };
   }, [doFit]);
 
   // Sync keyboard focus with active state

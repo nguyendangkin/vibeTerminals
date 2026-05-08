@@ -14,12 +14,6 @@ export interface EditorTab {
   language: string;
 }
 
-export interface TerminalInstance {
-  id: string;
-  name: string;
-  shell?: string; // "cmd" | "powershell" | "pwsh" | undefined = auto
-}
-
 export interface Project {
   id: string;
   path: string;

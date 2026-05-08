@@ -9,6 +9,17 @@ import React, {
 } from "react";
 import { TerminalPanel, type TerminalPanelHandle } from "./TerminalPanel";
 
+// ── Utils ────────────────────────────────────────────────────────────────────
+
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
 // ── Pane tree types ────────────────────────────────────────────────────────
 
 interface TerminalLeaf {
@@ -55,6 +66,7 @@ interface PersistedTerminalLayout {
   height: number;
   nameCounter: number;
   lastCommands: Record<string, string>;
+  globalShell: string;
 }
 
 const terminalStorageKey = (pid: string) => `tertito_terminal_${pid}`;
@@ -69,10 +81,11 @@ function seedNodeCounter(node: PaneNode): void {
 
 let nodeCounter = 0;
 
-function makeLeaf(nameCounter: React.MutableRefObject<number>, _shell?: string): TerminalLeaf {
+function makeLeaf(nameCounter: React.MutableRefObject<number>, shell: string): TerminalLeaf {
   const id = ++nodeCounter;
   const n = ++nameCounter.current;
-  return { type: "leaf", id: `term_${id}`, name: `PowerShell ${n}`, shell: "powershell" };
+  const label = shell === "cmd" ? "CMD" : shell === "pwsh" ? "PS Core" : "PowerShell";
+  return { type: "leaf", id: `term_${id}`, name: `${label} ${n}`, shell };
 }
 
 function makeSplitId(): string { return `split_${++nodeCounter}`; }
@@ -157,17 +170,19 @@ interface TerminalContainerProps {
   fullscreen?: boolean;
   onToggleVisible: () => void;
   onRegisterReload?: (fn: () => void) => void;
+  globalShell: string;
+  onShellChange?: (shell: string) => void;
 }
 
-export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggleVisible, onRegisterReload }: TerminalContainerProps) {
-  const mountRef = useRef<{ root: PaneNode; activeId: string; nameCounter: number; height: number; lastCommands: Record<string, string> } | null>(null);
+export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggleVisible, onRegisterReload, globalShell, onShellChange }: TerminalContainerProps) {
+  const mountRef = useRef<{ root: PaneNode; activeId: string; nameCounter: number; height: number; lastCommands: Record<string, string>; restoredShell?: string } | null>(null);
   if (mountRef.current === null) {
     const saved = localStorage.getItem(terminalStorageKey(projectId));
     if (saved) {
       try {
         const parsed: PersistedTerminalLayout = JSON.parse(saved);
         seedNodeCounter(parsed.root);
-        mountRef.current = { root: parsed.root, activeId: parsed.activeId, nameCounter: parsed.nameCounter, height: parsed.height, lastCommands: parsed.lastCommands ?? {} };
+        mountRef.current = { root: parsed.root, activeId: parsed.activeId, nameCounter: parsed.nameCounter, height: parsed.height, lastCommands: parsed.lastCommands ?? {}, restoredShell: parsed.globalShell };
       } catch { /* fall through */ }
     }
     if (mountRef.current === null) {
@@ -175,11 +190,19 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
       mountRef.current = { root: { type: "leaf", id, name: "PowerShell 1", shell: "powershell" }, activeId: id, nameCounter: 1, height: 260, lastCommands: {} };
     }
   }
+
+  // Notify parent of restored shell preference (deferred so we don't setState during render)
+  useEffect(() => {
+    if (mountRef.current?.restoredShell) {
+      onShellChange?.(mountRef.current.restoredShell);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const instCounter = useRef(mountRef.current.nameCounter);
   const [root, setRoot] = useState<PaneNode>(mountRef.current.root);
   const [activeId, setActiveId] = useState<string>(mountRef.current.activeId);
   const [height, setHeight] = useState(mountRef.current.height);
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+  const debouncedSize = useDebouncedValue(containerSize, 16);
   const containerRef = useRef<HTMLDivElement>(null);
   const panelRefsMap = useRef(new Map<string, TerminalPanelHandle>());
   const [lastCommands, setLastCommands] = useState<Record<string, string>>(mountRef.current.lastCommands);
@@ -208,15 +231,15 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
     return () => ro.disconnect();
   }, []);
 
-  // ── Compute flat layout from tree ──────────────────────────────────────
+  // ── Compute flat layout from tree (debounced for performance) ──────────
   const { leaves, dividers } = useMemo(() => {
     const leaves: LeafLayout[] = [];
     const dividers: DividerLayout[] = [];
-    if (containerSize.w > 0 && containerSize.h > 0) {
-      computeLayout(root, 0, 0, containerSize.w, containerSize.h, leaves, dividers);
+    if (debouncedSize.w > 0 && debouncedSize.h > 0) {
+      computeLayout(root, 0, 0, debouncedSize.w, debouncedSize.h, leaves, dividers);
     }
     return { leaves, dividers };
-  }, [root, containerSize]);
+  }, [root, debouncedSize]);
 
   // ── Panel height resize ────────────────────────────────────────────────
   const handleResizeStart = useCallback(
@@ -244,20 +267,20 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
   // ── Pane actions ──────────────────────────────────────────────────────
   const handleSplitH = useCallback(
     (leafId: string) => {
-      const leaf = makeLeaf(instCounter);
+      const leaf = makeLeaf(instCounter, globalShell);
       setRoot((prev) => doSplit(prev, leafId, "row", leaf));
       setActiveId(leaf.id);
     },
-    [],
+    [globalShell],
   );
 
   const handleSplitV = useCallback(
     (leafId: string) => {
-      const leaf = makeLeaf(instCounter);
+      const leaf = makeLeaf(instCounter, globalShell);
       setRoot((prev) => doSplit(prev, leafId, "col", leaf));
       setActiveId(leaf.id);
     },
-    [],
+    [globalShell],
   );
 
   const handleClose = useCallback(
@@ -267,10 +290,10 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
         onToggleVisible();
         return;
       }
-      setRoot((prev) => doClose(prev, leafId) ?? makeLeaf(instCounter));
+      setRoot((prev) => doClose(prev, leafId) ?? makeLeaf(instCounter, globalShell));
       setActiveId((prev) => (prev !== leafId ? prev : ids.find((id) => id !== leafId) ?? ""));
     },
-    [root, onToggleVisible],
+    [root, globalShell, onToggleVisible],
   );
 
   const handleRatioChange = useCallback((splitId: string, ratio: number) => {
@@ -306,7 +329,7 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
     [ctxMenu],
   );
 
-  // ── Persist layout ─────────────────────────────────────────────────────
+  // ── Persist layout (debounced) ──────────────────────────────────────────
   useEffect(() => {
     const state: PersistedTerminalLayout = {
       root,
@@ -314,9 +337,13 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
       height,
       nameCounter: instCounter.current,
       lastCommands,
+      globalShell,
     };
-    localStorage.setItem(terminalStorageKey(projectId), JSON.stringify(state));
-  }, [root, activeId, height, lastCommands, projectId]);
+    const key = terminalStorageKey(projectId);
+    const serialized = JSON.stringify(state);
+    const id = setTimeout(() => localStorage.setItem(key, serialized), 400);
+    return () => clearTimeout(id);
+  }, [root, activeId, height, lastCommands, globalShell, projectId]);
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -465,16 +492,26 @@ export function TerminalContainer({ projectId, cwd, visible, fullscreen, onToggl
                 if (!containerEl) return;
                 const bounds = containerEl.getBoundingClientRect();
                 const { splitRect, splitId, dir } = div;
+                let raf = 0;
+                let pendingRatio = 0.5;
                 const onMove = (ev: MouseEvent) => {
                   const rel = dir === "row"
                     ? (ev.clientX - bounds.left) - splitRect.left
                     : (ev.clientY - bounds.top) - splitRect.top;
                   const size = dir === "row" ? splitRect.width : splitRect.height;
-                  handleRatioChange(splitId, Math.max(0.1, Math.min(0.9, rel / size)));
+                  pendingRatio = Math.max(0.1, Math.min(0.9, rel / size));
+                  if (!raf) {
+                    raf = requestAnimationFrame(() => {
+                      raf = 0;
+                      handleRatioChange(splitId, pendingRatio);
+                    });
+                  }
                 };
                 const onUp = () => {
+                  if (raf) { cancelAnimationFrame(raf); raf = 0; }
                   document.removeEventListener("mousemove", onMove);
                   document.removeEventListener("mouseup", onUp);
+                  handleRatioChange(splitId, pendingRatio);
                 };
                 document.addEventListener("mousemove", onMove);
                 document.addEventListener("mouseup", onUp);

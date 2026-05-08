@@ -65,6 +65,8 @@ function App() {
   const sidebarVisible = topTab === "explorer" || topTab === "git";
   const showTerminal = topTab === "terminal";
   const terminalReloadRef = useRef<Map<string, () => void>>(new Map());
+  const terminalShellRef = useRef<Map<string, string>>(new Map());
+  const [, setShellTick] = useState(0);
 
   const shellRef = useRef<HTMLDivElement>(null);
   const hasRestoredRef = useRef(false);
@@ -394,7 +396,18 @@ function App() {
 
       {/* Right area: top bar + content */}
       <div className="right-area">
-        <TopBar activeTab={topTab} onTabClick={handleTopTab} onReloadAll={() => { if (activeProjectId) terminalReloadRef.current.get(activeProjectId)?.(); }} />
+        <TopBar
+          activeTab={topTab}
+          onTabClick={handleTopTab}
+          onReloadAll={() => { if (activeProjectId) terminalReloadRef.current.get(activeProjectId)?.(); }}
+          globalShell={activeProjectId ? (terminalShellRef.current.get(activeProjectId) ?? "powershell") : "powershell"}
+          onGlobalShellChange={(shell) => {
+            if (activeProjectId) {
+              terminalShellRef.current.set(activeProjectId, shell);
+              setShellTick((n) => n + 1);
+            }
+          }}
+        />
 
         <div className="content-area" style={topTab === "terminal" ? { display: "none" } : undefined}>
           {/* Sidebar (explorer / git) */}
@@ -465,7 +478,8 @@ function App() {
           </div>
         </div>
 
-        {/* Per-project terminals — always mounted, hidden via CSS when inactive */}
+        {/* Per-project terminals — always mounted, hidden via CSS when inactive.
+            This preserves PTY state when switching between projects. */}
         {projects.map((p) => {
           const active = showTerminal && p.id === activeProjectId;
           return (
@@ -480,6 +494,11 @@ function App() {
                 fullscreen
                 onToggleVisible={() => { if (activeProjectId) projectTopTabsRef.current[activeProjectId] = null; setTopTab(null); }}
                 onRegisterReload={(fn) => { terminalReloadRef.current.set(p.id, fn); }}
+                globalShell={terminalShellRef.current.get(p.id) ?? "powershell"}
+                onShellChange={(shell) => {
+                  terminalShellRef.current.set(p.id, shell);
+                  setShellTick((n) => n + 1);
+                }}
               />
             </div>
           );

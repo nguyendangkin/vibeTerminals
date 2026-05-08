@@ -163,6 +163,29 @@ body,
   color: #6a9955;
 }
 
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 4px;
+}
+
+.top-bar-shell-select {
+  background: #2d2d2d;
+  color: #ccc;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.top-bar-shell-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 /* ─── Project Bar (Discord-style) ───────────────────────────────────────── */
 .project-bar {
   width: 52px;
@@ -803,186 +826,6 @@ body,
   font-size: 14px;
 }
 
-/* Terminal */
-.terminal-resize-handle {
-  height: 4px;
-  cursor: row-resize;
-  background: var(--border-color);
-  transition: background 0.15s;
-  flex-shrink: 0;
-}
-
-.terminal-resize-handle:hover {
-  background: var(--accent);
-}
-
-.terminal-panel {
-  flex-shrink: 0;
-  overflow: hidden;
-  border-top: 1px solid var(--border-color);
-  background: #000;
-  display: flex;
-  flex-direction: column;
-}
-
-.terminal-panel .terminal-container {
-  flex: 1;
-  min-height: 0;
-}
-
-.terminal-panel .terminal-container .xterm {
-  height: 100%;
-  padding: 4px;
-}
-
-/* Terminal header */
-.terminal-header {
-  display: flex;
-  align-items: center;
-  padding: 4px 8px;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border-color);
-  gap: 6px;
-  min-height: 28px;
-}
-
-.terminal-header-title {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-  flex: 1;
-}
-
-.terminal-shell-select {
-  padding: 2px 4px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  font-size: 11px;
-  font-family: inherit;
-  border-radius: 3px;
-  outline: none;
-}
-
-.terminal-shell-select:focus {
-  border-color: var(--accent);
-}
-
-.terminal-split-btn,
-.terminal-close-btn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 0 4px;
-  border-radius: 3px;
-  line-height: 1;
-}
-
-.terminal-split-btn:hover,
-.terminal-close-btn:hover {
-  color: var(--text-primary);
-  background: rgba(128, 128, 128, 0.2);
-}
-
-/* Terminal layout (tree-based, recursive splits) */
-.terminal-layout {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-/* Terminal group – arranges children in row or column */
-.terminal-group {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-.terminal-group-row {
-  flex-direction: row;
-}
-
-.terminal-group-column {
-  flex-direction: column;
-}
-
-/* Terminal pane – the actual terminal wrapper */
-.terminal-pane {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 2px solid transparent;
-  transition: border-color 0.15s;
-  min-width: 0;
-  min-height: 0;
-}
-
-.terminal-pane.active {
-  border-color: var(--accent);
-}
-
-/* Terminal pane mini-header with close button */
-.terminal-pane-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1px 8px;
-  font-size: 10px;
-  color: var(--text-secondary);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  min-height: 20px;
-  user-select: none;
-}
-
-.terminal-pane-close-btn {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 0 4px;
-  border-radius: 3px;
-  line-height: 1;
-  visibility: hidden;
-}
-
-.terminal-pane-label:hover .terminal-pane-close-btn,
-.terminal-pane.active .terminal-pane-close-btn {
-  visibility: visible;
-}
-
-.terminal-pane-close-btn:hover {
-  color: var(--text-primary);
-  background: rgba(128, 128, 128, 0.2);
-}
-
-/* Terminal divider – draggable resize handle */
-.terminal-divider {
-  flex-shrink: 0;
-  background: var(--border-color);
-  transition: background 0.15s;
-}
-
-.terminal-divider-row {
-  width: 4px;
-  cursor: col-resize;
-}
-
-.terminal-divider-column {
-  height: 4px;
-  cursor: row-resize;
-}
-
-.terminal-divider:hover {
-  background: var(--accent);
-}
-
 /* Status bar */
 .status-bar {
   display: flex;
@@ -1487,207 +1330,6 @@ body,
   border-top: 1px solid var(--border-color);
   background: #1a1a1a;
   overflow: hidden;
-}
-
-/* ─── Terminal Panel Header ─────────────────────────────────────────────── */
-.term-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #252526;
-  border-bottom: 1px solid var(--border-color);
-  min-height: 30px;
-  padding: 0 8px 0 12px;
-  flex-shrink: 0;
-  user-select: none;
-}
-
-.term-panel-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: #858585;
-  flex: 1;
-}
-
-.term-panel-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* ─── Terminal Tab Bar ───────────────────────────────────────────────────── */
-.term-tabbar {
-  display: flex;
-  align-items: center;
-  background: #252526;
-  border-bottom: 1px solid var(--border-color);
-  min-height: 32px;
-  flex-shrink: 0;
-  user-select: none;
-}
-
-.term-tabbar-tabs {
-  display: flex;
-  align-items: center;
-  flex: 1;
-  overflow-x: auto;
-  scrollbar-width: none;
-  gap: 1px;
-  padding: 0 4px;
-}
-
-.term-tabbar-tabs::-webkit-scrollbar { display: none; }
-
-.term-tab {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 8px;
-  height: 28px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: #858585;
-  cursor: pointer;
-  font-size: 12px;
-  font-family: inherit;
-  white-space: nowrap;
-  border-radius: 4px 4px 0 0;
-  transition: color 0.12s, background 0.12s;
-  position: relative;
-}
-
-.term-tab:hover {
-  color: #cccccc;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.term-tab-active {
-  color: #d4d4d4;
-  background: #1a1a1a;
-  border-bottom-color: var(--accent);
-}
-
-.term-tab-split {
-  border-bottom-color: #6a9955;
-}
-
-.term-tab-icon {
-  font-size: 10px;
-  font-weight: 700;
-  font-family: "Cascadia Code", monospace;
-  opacity: 0.8;
-  min-width: 16px;
-  text-align: center;
-}
-
-.term-tab-name {
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.term-tab-split-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #6a9955;
-  flex-shrink: 0;
-}
-
-.term-tab-close {
-  font-size: 14px;
-  line-height: 1;
-  opacity: 0;
-  padding: 0 1px;
-  border-radius: 3px;
-  transition: opacity 0.1s;
-  cursor: pointer;
-  color: #858585;
-}
-
-.term-tab:hover .term-tab-close,
-.term-tab-active .term-tab-close {
-  opacity: 1;
-}
-
-.term-tab-close:hover {
-  color: #f44747;
-  background: rgba(244, 71, 71, 0.15);
-}
-
-.term-tab-new {
-  background: none;
-  border: none;
-  color: #858585;
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  padding: 0 6px;
-  height: 28px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  transition: color 0.1s;
-}
-
-.term-tab-new:hover {
-  color: #cccccc;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.term-tabbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 0 6px;
-  flex-shrink: 0;
-}
-
-.term-shell-select {
-  height: 22px;
-  padding: 0 6px;
-  background: #333333;
-  border: 1px solid var(--border-color);
-  color: #cccccc;
-  font-size: 11px;
-  font-family: inherit;
-  border-radius: 3px;
-  outline: none;
-  cursor: pointer;
-}
-
-.term-shell-select:focus { border-color: var(--accent); }
-
-.term-action-btn {
-  width: 26px;
-  height: 26px;
-  background: none;
-  border: none;
-  color: #858585;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: color 0.1s, background 0.1s;
-}
-
-.term-action-btn:hover {
-  color: #cccccc;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.term-action-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.term-action-close:hover {
-  color: #f44747;
-  background: rgba(244, 71, 71, 0.12);
 }
 
 /* ─── Terminal Body / Panes ──────────────────────────────────────────────── */
