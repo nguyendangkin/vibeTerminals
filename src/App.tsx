@@ -604,30 +604,32 @@ function App() {
 
         {/* Per-project terminals — always mounted, hidden via CSS when inactive.
             This preserves PTY state when switching between projects. */}
-        {projects.map((p) => {
-          const active = showTerminal && p.id === activeProjectId;
-          return (
-            <div
-              key={`tc-${p.id}`}
-              style={active ? { display: "contents" } : { display: "none" }}
-            >
-              <TerminalContainer
-                projectId={p.id}
-                cwd={p.path}
-                visible={active}
-                fullscreen
-                notes={notes[p.id] ?? []}
-                onToggleVisible={() => { if (activeProjectId) projectTopTabsRef.current[activeProjectId] = null; setTopTab(null); }}
-                onRegisterReload={(fn) => { terminalReloadRef.current.set(p.id, fn); }}
-                globalShell={terminalShellRef.current.get(p.id) ?? "powershell"}
-                onShellChange={(shell) => {
-                  terminalShellRef.current.set(p.id, shell);
-                  setShellTick((n) => n + 1);
-                }}
-              />
-            </div>
-          );
-        })}
+        <div className="terminal-area" style={showTerminal ? undefined : { display: "none" }}>
+          {projects.map((p) => {
+            const active = showTerminal && p.id === activeProjectId;
+            return (
+              <div
+                key={`tc-${p.id}`}
+                style={active ? { display: "contents" } : { display: "none" }}
+              >
+                <TerminalContainer
+                  projectId={p.id}
+                  cwd={p.path}
+                  visible={active}
+                  fullscreen
+                  notes={notes[p.id] ?? []}
+                  onToggleVisible={() => { if (activeProjectId) projectTopTabsRef.current[activeProjectId] = null; setTopTab(null); }}
+                  onRegisterReload={(fn) => { terminalReloadRef.current.set(p.id, fn); }}
+                  globalShell={terminalShellRef.current.get(p.id) ?? "powershell"}
+                  onShellChange={(shell) => {
+                    terminalShellRef.current.set(p.id, shell);
+                    setShellTick((n) => n + 1);
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {showPalette && (

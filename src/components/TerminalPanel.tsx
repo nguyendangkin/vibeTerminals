@@ -234,9 +234,9 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
       fontSize: 13,
       fontFamily: '"Cascadia Code", "Fira Code", "Consolas", monospace',
       theme: {
-        background: "#1a1a1a",
+        background: "#1e1e1e",
         foreground: "#d4d4d4",
-        cursor: "#d4d4d4",
+        cursor: "#cccccc",
         selectionBackground: "#264f78",
         black: "#1e1e1e",
         red: "#f44747",
