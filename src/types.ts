@@ -26,6 +26,34 @@ export interface WorkspaceState {
   activeTabId: string | null;
 }
 
+export interface GitFileStatus {
+  path: string;
+  status: string;
+}
+
+export interface GitStatusResult {
+  files: GitFileStatus[];
+  branch: string;
+  ahead: number;
+  behind: number;
+}
+
+export interface GitCommit {
+  hash: string;
+  short_hash: string;
+  parents: string[];
+  message: string;
+  author: string;
+  date: string;
+  refs: string[];
+}
+
+export interface GraphCommit extends GitCommit {
+  lane: number;
+  mergeLanes: number[];
+  totalLanes: number;
+}
+
 export interface Note {
   id: string;
   title: string;

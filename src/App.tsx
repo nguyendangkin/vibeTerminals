@@ -323,7 +323,7 @@ function App() {
         ...ws,
         tabs: ws.tabs.map((t) =>
           t.id === activeTab.id
-            ? { ...t, path: savePath!, title: savePath!.split(/[/\\]/).pop() ?? t.title, dirty: false }
+            ? { ...t, path: savePath!, title: savePath!.split(/[/\\]/).pop() ?? t.title, dirty: false, content }
             : t),
       }));
       if (rootPath) await refreshProjectTree(activeProjectId, rootPath);
