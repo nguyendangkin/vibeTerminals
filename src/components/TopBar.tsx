@@ -1,4 +1,5 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 export type TopTab = "terminal" | "explorer" | "git" | "note";
@@ -69,9 +70,47 @@ function getTabHint(tab: TopTab) {
   }
 }
 
+const SHELL_LABELS: Record<string, string> = {
+  powershell: "PowerShell",
+  cmd: "CMD",
+  pwsh: "PS Core",
+};
+
 export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlobalShellChange }: TopBarProps) {
   const appWindow = getCurrentWindow();
   const [maximized, setMaximized] = useState(false);
+  const [shellOpen, setShellOpen] = useState(false);
+  const [shellPos, setShellPos] = useState({ top: 0, left: 0, width: 0 });
+  const shellBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!shellOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (shellBtnRef.current && shellBtnRef.current.contains(t)) return;
+      if ((t as Element).closest?.(".top-bar-shell-menu")) return;
+      setShellOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setShellOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [shellOpen]);
+
+  const toggleShellMenu = () => {
+    if (shellOpen) { setShellOpen(false); return; }
+    const btn = shellBtnRef.current;
+    if (!btn) return;
+    const btnRect = btn.getBoundingClientRect();
+    const tools = btn.parentElement?.parentElement;
+    const toolsRect = tools?.getBoundingClientRect();
+    setShellPos({
+      top: btnRect.bottom + 2,
+      left: toolsRect?.left ?? btnRect.left,
+      width: toolsRect?.width ?? btnRect.width,
+    });
+    setShellOpen(true);
+  };
 
   useEffect(() => {
     let unlisten: (() => void) | undefined;
@@ -104,33 +143,56 @@ export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlob
             <span className="top-tab-label">{label}</span>
           </button>
         ))}
+        {activeTab === "terminal" && onGlobalShellChange && (
+          <div className="top-bar-term-tools">
+            <div className="top-bar-shell-wrap">
+              <button
+                ref={shellBtnRef}
+                className="top-bar-shell-select"
+                onClick={toggleShellMenu}
+                title="Shell for new terminals"
+                aria-haspopup="menu"
+                aria-expanded={shellOpen}
+              >
+                {SHELL_LABELS[globalShell ?? "powershell"] ?? "PowerShell"}
+              </button>
+              {shellOpen && createPortal(
+                <div
+                  className="top-bar-shell-menu"
+                  role="menu"
+                  style={{ top: shellPos.top, left: shellPos.left, minWidth: shellPos.width }}
+                >
+                  {Object.entries(SHELL_LABELS).map(([val, label]) => (
+                    <button
+                      key={val}
+                      role="menuitem"
+                      className={`top-bar-shell-item${(globalShell ?? "powershell") === val ? " top-bar-shell-item-active" : ""}`}
+                      onClick={() => { onGlobalShellChange?.(val); setShellOpen(false); }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>,
+                document.body
+              )}
+            </div>
+            {onReloadAll && (
+              <button
+                className="top-bar-reload-btn"
+                onClick={onReloadAll}
+                title="Rerun last commands in all terminals"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                  <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                  <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
       </div>
       <div className="top-bar-center" data-tauri-drag-region />
       <div className="top-bar-actions">
-        {activeTab === "terminal" && onGlobalShellChange && (
-          <select
-            className="top-bar-shell-select"
-            value={globalShell ?? "powershell"}
-            onChange={(e) => onGlobalShellChange(e.target.value)}
-            title="Shell for new terminals"
-          >
-            <option value="powershell">PowerShell</option>
-            <option value="cmd">CMD</option>
-            <option value="pwsh">PS Core</option>
-          </select>
-        )}
-        {activeTab === "terminal" && onReloadAll && (
-          <button
-            className="top-bar-reload-btn"
-            onClick={onReloadAll}
-            title="Rerun last commands in all terminals"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-              <path fillRule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
-              <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
-            </svg>
-          </button>
-        )}
         <div className="window-controls">
           <button
             className="window-btn window-minimize"
