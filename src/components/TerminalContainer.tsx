@@ -525,20 +525,18 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
                       ))}
                     </>
                   )}
-                  {hasOthers && (
-                    <>
-                      {(hasSelection || noteTypes.length > 0) && <div className="context-separator" />}
-                      {others.map((l) => (
-                        <div
-                          key={`out-${l.id}`}
-                          className="context-item"
-                          onClick={() => handleGetOutputFrom(l.id)}
-                        >
-                          Get output from {l.name}
-                        </div>
-                      ))}
-                    </>
+                  {hasOthers && !hasSelection && (
+                    others.map((l) => (
+                      <div
+                        key={`out-${l.id}`}
+                        className="context-item"
+                        onClick={() => handleGetOutputFrom(l.id)}
+                      >
+                        Get output from {l.name}
+                      </div>
+                    ))
                   )}
+                  {!hasSelection && hasOthers && noteTypes.length > 0 && <div className="context-separator" />}
                   {!hasSelection && noteTypes.map(({ type, label, items }) => (
                     <div
                       key={type}
