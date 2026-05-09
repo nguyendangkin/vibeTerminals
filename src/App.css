@@ -1371,13 +1371,22 @@ body,
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: 4px 0 4px 4px;
+  padding: 4px 4px 0 4px;
   box-sizing: border-box;
 }
 
 .terminal-xterm-host .xterm {
   height: 100%;
   width: 100%;
+}
+
+.terminal-xterm-host .xterm .xterm-viewport,
+.terminal-xterm-host .xterm .xterm-screen {
+  background-color: #1a1a1a;
+}
+
+.terminal-xterm-host .xterm .xterm-viewport {
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
 .term-pane-wrapper {

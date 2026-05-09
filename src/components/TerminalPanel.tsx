@@ -39,6 +39,8 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  const fitRafRef = useRef<number | null>(null);
+  const fitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const termIdRef = useRef<number | null>(null);
   const unlistenOutRef = useRef<UnlistenFn | null>(null);
   const unlistenExitRef = useRef<UnlistenFn | null>(null);
@@ -202,6 +204,27 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
     } catch { /* ignore */ }
   }, []);
 
+  const scheduleFit = useCallback(() => {
+    if (fitRafRef.current !== null) {
+      cancelAnimationFrame(fitRafRef.current);
+    }
+    fitRafRef.current = requestAnimationFrame(() => {
+      fitRafRef.current = null;
+      doFit();
+    });
+  }, [doFit]);
+
+  const cancelPendingFit = useCallback(() => {
+    if (fitTimeoutRef.current !== null) {
+      clearTimeout(fitTimeoutRef.current);
+      fitTimeoutRef.current = null;
+    }
+    if (fitRafRef.current !== null) {
+      cancelAnimationFrame(fitRafRef.current);
+      fitRafRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -358,24 +381,29 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
   // Fit when becoming visible
   useEffect(() => {
     if (visible) {
-      const raf = requestAnimationFrame(() => doFit());
-      const t = setTimeout(doFit, 80);
-      return () => { cancelAnimationFrame(raf); clearTimeout(t); };
+      cancelPendingFit();
+      scheduleFit();
+      fitTimeoutRef.current = setTimeout(scheduleFit, 80);
+      return () => {
+        cancelPendingFit();
+      };
     }
-  }, [visible, doFit]);
+    cancelPendingFit();
+  }, [visible, scheduleFit, cancelPendingFit]);
 
   // ResizeObserver for container size changes (debounced)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
     const ro = new ResizeObserver(() => {
-      if (timer !== null) clearTimeout(timer);
-      timer = setTimeout(() => { timer = null; doFit(); }, 100);
+      scheduleFit();
     });
     ro.observe(el);
-    return () => { ro.disconnect(); if (timer !== null) clearTimeout(timer); };
-  }, [doFit]);
+    return () => {
+      ro.disconnect();
+      cancelPendingFit();
+    };
+  }, [scheduleFit, cancelPendingFit]);
 
   // Sync keyboard focus with active state
   useEffect(() => {
