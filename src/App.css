@@ -113,8 +113,9 @@ body,
   backdrop-filter: blur(10px);
   height: var(--topbar-height);
   flex-shrink: 0;
-  padding: 0 10px 0 0;
+  padding: 0;
   gap: 10px;
+  overflow: hidden;
 }
 
 .top-bar-tabs {
@@ -235,10 +236,9 @@ body,
 
 .top-bar-actions {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  height: var(--topbar-control-size);
-  margin-top: var(--topbar-control-offset);
+  align-items: stretch;
+  gap: 0;
+  height: 100%;
   padding-left: 2px;
 }
 
@@ -246,18 +246,18 @@ body,
 .window-controls {
   display: flex;
   align-items: stretch;
-  height: 28px;
+  height: 100%;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.03);
+  background: transparent;
 }
 
 .window-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
+  width: 46px;
   height: 100%;
   background: none;
   border: none;
