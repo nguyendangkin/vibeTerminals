@@ -5,7 +5,6 @@ import { TabBar } from "./components/TabBar";
 import { EditorPanel } from "./components/EditorPanel";
 import { FileTree } from "./components/FileTree";
 import { CommandPalette } from "./components/CommandPalette";
-import { GitPanel } from "./components/GitPanel";
 import { NoteList } from "./components/NoteList";
 import { NoteCard } from "./components/NoteCard";
 import { ProjectBar } from "./components/ProjectBar";
@@ -428,15 +427,12 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [projectDeleteTarget]);
 
-  const handleToggleGit = useCallback(() => handleTopTab("git"), [handleTopTab]);
-
   // ── keyboard shortcuts ────────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const ctrl = e.ctrlKey || e.metaKey;
     const shift = e.shiftKey;
     const key = e.key.toLowerCase();
     if (ctrl && shift && key === "p") { e.preventDefault(); setShowPalette(true); return; }
-    if (ctrl && shift && key === "g") { e.preventDefault(); handleToggleGit(); return; }
     if (ctrl && shift && key === "e") { e.preventDefault(); handleTopTab("explorer"); return; }
     if (ctrl && shift && key === "n") { e.preventDefault(); handleTopTab("note"); return; }
     if (ctrl && key === "tab") {
@@ -459,7 +455,7 @@ function App() {
       }
     }
   }, [tabs, activeTabId, handleAddProject, handleSaveFile,
-      handleNewTab, handleCloseTab, openFileInTab, handleToggleGit,
+      handleNewTab, handleCloseTab, openFileInTab,
       setActiveTabId]);
 
   // ── command palette entries ───────────────────────────────────────────────
@@ -469,7 +465,6 @@ function App() {
     { id: "new-tab", label: "New Tab", shortcut: "Ctrl+N", action: handleNewTab },
     { id: "close-tab", label: "Close Tab", shortcut: "Ctrl+W", action: () => activeTabId && handleCloseTab(activeTabId) },
     { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => handleTopTab("terminal") },
-    { id: "git-panel", label: "Source Control", shortcut: "Ctrl+Shift+G", action: handleToggleGit },
     { id: "note-panel", label: "Notes Panel", shortcut: "Ctrl+Shift+N", action: () => handleTopTab("note") },
   ];
 
@@ -604,12 +599,6 @@ function App() {
             </div>
           )}
 
-          {/* Git: full-width panel, no editor */}
-          {topTab === "git" && (
-            <div className="git-panel">
-              <GitPanel rootPath={rootPath} />
-            </div>
-          )}
         </div>
 
         {/* Per-project terminals — always mounted, hidden via CSS when inactive.

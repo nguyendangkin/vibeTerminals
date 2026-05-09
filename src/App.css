@@ -1,4 +1,4 @@
-* {
+﻿* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -35,7 +35,7 @@ body,
   background: var(--bg-primary);
 }
 
-/* ─── Custom Scrollbars ──────────────────────────────────────────────────── */
+/* â”€â”€â”€ Custom Scrollbars â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -76,7 +76,7 @@ body,
   user-select: none;
 }
 
-/* ─── Right area (top bar + content + terminal) ──────────────────────────── */
+/* â”€â”€â”€ Right area (top bar + content + terminal) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .right-area {
   flex: 1;
   display: flex;
@@ -103,7 +103,7 @@ body,
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* ─── Top Bar ────────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Top Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .top-bar {
   display: flex;
   align-items: flex-start;
@@ -242,7 +242,7 @@ body,
   padding-left: 2px;
 }
 
-/* ─── Window Controls ──────────────────────────────────────────────────── */
+/* â”€â”€â”€ Window Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .window-controls {
   display: flex;
   align-items: stretch;
@@ -336,7 +336,7 @@ body,
   color: var(--text-primary);
 }
 
-/* ─── Project Bar (Discord-style) ───────────────────────────────────────── */
+/* â”€â”€â”€ Project Bar (Discord-style) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .project-bar {
   width: 52px;
   min-width: 52px;
@@ -1024,428 +1024,8 @@ body,
   color: var(--text-primary);
 }
 
-/* ─── Git Panel ─────────────────────────────────────────────────────────── */
-.git-panel {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
 
-.git-main {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: row;
-}
-
-.git-left {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  min-width: 180px;
-  border-right: 1px solid var(--border-color);
-}
-
-.git-right {
-  flex: 1.2;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  min-width: 200px;
-}
-
-.git-right-header {
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-.git-empty {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 16px;
-  gap: 12px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  text-align: center;
-}
-
-/* Toast */
-.git-toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: var(--accent);
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 12px;
-  z-index: 999;
-  animation: git-toast-in 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-}
-@keyframes git-toast-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* Header */
-.git-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-.git-branch-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-primary);
-}
-.git-branch-name {
-  font-size: 13px;
-  font-weight: 600;
-}
-.git-ahead {
-  font-size: 11px;
-  color: #73c991;
-  background: rgba(115, 201, 145, 0.15);
-  padding: 1px 6px;
-  border-radius: 8px;
-}
-.git-behind {
-  font-size: 11px;
-  color: #e2a33b;
-  background: rgba(226, 163, 59, 0.15);
-  padding: 1px 6px;
-  border-radius: 8px;
-}
-.git-header-actions {
-  display: flex;
-  gap: 6px;
-}
-
-/* Buttons */
-.git-btn {
-  font-size: 11px;
-  padding: 4px 12px;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: background 0.15s;
-  white-space: nowrap;
-}
-.git-btn:hover { background: var(--tree-hover); }
-.git-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.git-btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-.git-btn-primary:hover { opacity: 0.85; }
-.git-btn-primary:disabled { opacity: 0.4; }
-.git-btn-outline {
-  background: transparent;
-  border-color: var(--border-color);
-}
-.git-btn-small {
-  padding: 2px 8px;
-  font-size: 10px;
-}
-.git-btn-danger {
-  border-color: #d96262;
-  color: #d96262;
-}
-.git-btn-danger:hover {
-  background: rgba(217, 98, 98, 0.15);
-}
-
-/* Error */
-.git-error {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 16px;
-  margin: 8px 12px 0;
-  background: rgba(217, 98, 98, 0.12);
-  border: 1px solid rgba(217, 98, 98, 0.3);
-  border-radius: 4px;
-  color: #d96262;
-  font-size: 12px;
-}
-.git-error-close {
-  background: none;
-  border: none;
-  color: #d96262;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0 4px;
-}
-
-/* Sections */
-.git-section {
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-.git-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-}
-.git-section-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.git-section-hint {
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-.git-section-actions {
-  display: flex;
-  gap: 4px;
-}
-
-/* Changes list */
-.git-changes-list {
-  padding: 0 16px 10px;
-}
-.git-changes-group {
-  margin-bottom: 6px;
-}
-.git-file-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 8px;
-  border-radius: 3px;
-  font-size: 12px;
-  transition: background 0.1s;
-}
-.git-file-row:hover {
-  background: var(--tree-hover);
-}
-.git-file-active {
-  background: var(--tree-active);
-}
-
-/* File status badges */
-.git-file-status {
-  font-size: 10px;
-  font-weight: 700;
-  width: 20px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 3px;
-  flex-shrink: 0;
-  letter-spacing: 0.5px;
-}
-.git-status-m { background: rgba(241, 163, 59, 0.2); color: #f1a33b; }
-.git-status-a { background: rgba(63, 185, 80, 0.2); color: #3fb950; }
-.git-status-d { background: rgba(217, 98, 98, 0.2); color: #d96262; }
-.git-status-r { background: rgba(188, 140, 255, 0.2); color: #bc8cff; }
-.git-status-\?\? { background: rgba(139, 148, 158, 0.2); color: #8b949e; }
-.git-status-u { background: rgba(217, 98, 98, 0.3); color: #ff7b72; }
-
-.git-file-path {
-  flex: 1;
-  cursor: pointer;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.git-file-path:hover {
-  text-decoration: underline;
-}
-.git-file-label {
-  font-size: 10px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-.git-no-changes {
-  font-size: 12px;
-  color: var(--text-secondary);
-  text-align: center;
-  padding: 16px 0;
-}
-
-/* Commit input */
-.git-commit-input {
-  margin: 0 16px 8px;
-  padding: 8px 10px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 12px;
-  resize: vertical;
-  min-height: 56px;
-}
-.git-commit-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-.git-commit-input::placeholder {
-  color: var(--text-secondary);
-}
-.git-commit-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 16px 10px;
-}
-.git-commit-hint {
-  font-size: 10px;
-  color: var(--text-secondary);
-  margin-left: auto;
-}
-
-/* Graph */
-.git-graph-container {
-  padding: 0 0 10px;
-  max-height: 500px;
-  overflow-y: auto;
-}
-.git-graph-row {
-  display: flex;
-  align-items: stretch;
-  min-height: 28px;
-  padding: 0 16px;
-}
-.git-graph-row:hover {
-  background: var(--tree-hover);
-}
-.git-graph-lanes {
-  flex-shrink: 0;
-  display: flex;
-}
-
-/* Lane cells */
-.gl-cell {
-  height: 28px;
-  position: relative;
-  flex-shrink: 0;
-  overflow: visible;
-}
-
-/* Full vertical line */
-.gl-vfull {
-  position: absolute;
-  left: 6px;
-  top: 0;
-  bottom: 0;
-  border-left: 2px solid;
-}
-
-/* Top-half vertical line */
-.gl-vtop {
-  position: absolute;
-  left: 6px;
-  top: 0;
-  height: 14px;
-  border-left: 2px solid;
-}
-
-
-/* Horizontal pass-through */
-.gl-hpass {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 14px;
-  border-top: 2px solid;
-}
-
-/* Dot */
-.gl-dot {
-  position: absolute;
-  left: 2px;
-  top: 8px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid;
-  z-index: 1;
-  box-sizing: border-box;
-}
-.gl-dot-inner {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  border: 1.5px solid;
-  position: absolute;
-  left: 0;
-  top: 0;
-}
-
-/* Graph info */
-.git-graph-info {
-  flex: 1;
-  min-width: 0;
-  padding-left: 8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-.git-graph-message {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-primary);
-  overflow: hidden;
-}
-.git-graph-msg-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.git-graph-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 10px;
-  color: var(--text-secondary);
-}
-.git-graph-hash {
-  font-family: monospace;
-  color: #8b949e;
-}
-.git-graph-refs {
-  display: flex;
-  gap: 3px;
-  flex-shrink: 0;
-}
-.git-graph-ref {
-  font-size: 10px;
-  padding: 0 5px;
-  border-radius: 8px;
-  background: rgba(241, 163, 59, 0.15);
-  color: #f1a33b;
-  font-weight: 600;
-}
-
-/* ─── Terminal Container ─────────────────────────────────────────────────── */
+/* â”€â”€â”€ Terminal Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .term-resize-handle {
   height: 4px;
   cursor: row-resize;
@@ -1467,7 +1047,7 @@ body,
   overflow: hidden;
 }
 
-/* ─── Terminal Body / Panes ──────────────────────────────────────────────── */
+/* â”€â”€â”€ Terminal Body / Panes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .term-body {
   display: flex;
   flex: 1;
@@ -1512,7 +1092,7 @@ body,
   cursor: row-resize;
 }
 
-/* ─── Per-pane terminal toolbar ─────────────────────────────────────────── */
+/* â”€â”€â”€ Per-pane terminal toolbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .term-pane-toolbar {
   display: flex;
   align-items: center;
@@ -1576,7 +1156,7 @@ body,
   background: rgba(0, 122, 204, 0.12);
 }
 
-/* ─── xterm host ─────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ xterm host â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .terminal-xterm-host {
   flex: 1;
   min-width: 0;
@@ -1610,7 +1190,7 @@ body,
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-/* ─── Welcome Screen ─────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Welcome Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .welcome-screen {
   flex: 1;
   display: flex;
@@ -1636,7 +1216,7 @@ body,
   opacity: 0.25;
 }
 
-/* ─── Note sidebar ─────────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Note sidebar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .note-sidebar {
   display: flex;
   flex-direction: column;
@@ -1742,7 +1322,7 @@ body,
   text-align: center;
 }
 
-/* ─── Note cards (main area) ────────────────────────────────────────────────── */
+/* â”€â”€â”€ Note cards (main area) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .note-cards {
   flex: 1;
   overflow-y: auto;
@@ -1838,7 +1418,7 @@ body,
   font-family: inherit;
 }
 
-/* ─── Context submenu ───────────────────────────────────────────────────────── */
+/* â”€â”€â”€ Context submenu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .context-item-has-submenu {
   display: flex;
   justify-content: space-between;

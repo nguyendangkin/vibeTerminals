@@ -1,4 +1,3 @@
-mod git;
 mod terminal;
 
 use regex::Regex;
@@ -228,11 +227,6 @@ pub fn run() {
             pick_file,
             pick_folder,
             save_file_dialog,
-            git::git_status,
-            git::git_commit,
-            git::git_push,
-            git::git_log,
-            git::git_reset_all,
             terminal::terminal_spawn,
             terminal::terminal_write,
             terminal::terminal_resize,
