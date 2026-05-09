@@ -12,17 +12,11 @@ function avatarColor(id: string): string {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 }
 
-function initials(name: string): string {
-  const parts = name.split(/[-_\s.]+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
-
 interface ProjectBarProps {
   projects: Project[];
   activeProjectId: string | null;
   onSelectProject: (id: string) => void;
-  onCloseProject: (id: string) => void;
+  onRequestDeleteProject: (id: string) => void;
   onAddProject: () => void;
 }
 
@@ -30,7 +24,7 @@ export function ProjectBar({
   projects,
   activeProjectId,
   onSelectProject,
-  onCloseProject,
+  onRequestDeleteProject,
   onAddProject,
 }: ProjectBarProps) {
   return (
@@ -53,14 +47,20 @@ export function ProjectBar({
               key={p.id}
               className={`project-bar-item${isActive ? " project-bar-item-active" : ""}`}
               title={p.path}
-              onContextMenu={(e) => { e.preventDefault(); onCloseProject(p.id); }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                onRequestDeleteProject(p.id);
+              }}
             >
               <button
                 className="project-bar-avatar-btn"
                 onClick={() => onSelectProject(p.id)}
                 style={{ "--avatar-bg": avatarColor(p.id) } as CSSProperties}
+                title={`${p.name}\n${p.path}`}
               >
-                <span className="project-bar-avatar">{initials(p.name)}</span>
+                <span className="project-bar-avatar">
+                  {p.name}
+                </span>
               </button>
             </div>
           );

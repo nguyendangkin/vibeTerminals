@@ -56,6 +56,19 @@ const TABS: { id: TopTab; label: string; icon: ReactNode }[] = [
   },
 ];
 
+function getTabHint(tab: TopTab) {
+  switch (tab) {
+    case "terminal":
+      return "Ctrl+`";
+    case "explorer":
+      return "Ctrl+Shift+E";
+    case "git":
+      return "Ctrl+Shift+G";
+    case "note":
+      return "Ctrl+Shift+N";
+  }
+}
+
 export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlobalShellChange }: TopBarProps) {
   const appWindow = getCurrentWindow();
   const [maximized, setMaximized] = useState(false);
@@ -82,14 +95,17 @@ export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlob
             key={id}
             className={`top-tab${activeTab === id ? " top-tab-active" : ""}`}
             onClick={() => onTabClick(id)}
-            title={id === "terminal" ? "Terminal (Ctrl+`)" : id === "explorer" ? "Explorer (Ctrl+Shift+E)" : "Source Control (Ctrl+Shift+G)"}
+            aria-pressed={activeTab === id}
+            title={`${label} (${getTabHint(id)})`}
           >
-            {icon}
-            {label}
+            <span className="top-tab-icon" aria-hidden="true">
+              {icon}
+            </span>
+            <span className="top-tab-label">{label}</span>
           </button>
         ))}
       </div>
-      <div className="top-bar-drag-spacer" data-tauri-drag-region />
+      <div className="top-bar-center" data-tauri-drag-region />
       <div className="top-bar-actions">
         {activeTab === "terminal" && onGlobalShellChange && (
           <select

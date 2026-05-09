@@ -61,6 +61,7 @@ function App() {
   const [sidebarWidth, setSidebarWidth] = useState(240);
   const [resizingSidebar, setResizingSidebar] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
+  const [projectDeleteTarget, setProjectDeleteTarget] = useState<Project | null>(null);
 
   const showTerminal = topTab === "terminal";
   const terminalReloadRef = useRef<Map<string, () => void>>(new Map());
@@ -394,6 +395,30 @@ function App() {
     setTopTab(projectTopTabsRef.current[id] ?? "explorer");
   }, []);
 
+  const handleRequestDeleteProject = useCallback((id: string) => {
+    const target = projects.find((p) => p.id === id) ?? null;
+    setProjectDeleteTarget(target);
+  }, [projects]);
+
+  const handleConfirmDeleteProject = useCallback(() => {
+    if (!projectDeleteTarget) return;
+    handleCloseProject(projectDeleteTarget.id);
+    setProjectDeleteTarget(null);
+  }, [handleCloseProject, projectDeleteTarget]);
+
+  const handleCancelDeleteProject = useCallback(() => {
+    setProjectDeleteTarget(null);
+  }, []);
+
+  useEffect(() => {
+    if (!projectDeleteTarget) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setProjectDeleteTarget(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [projectDeleteTarget]);
+
   const handleToggleGit = useCallback(() => handleTopTab("git"), [handleTopTab]);
 
   // ── keyboard shortcuts ────────────────────────────────────────────────────
@@ -452,7 +477,7 @@ function App() {
         projects={projects}
         activeProjectId={activeProjectId}
         onSelectProject={handleSelectProject}
-        onCloseProject={handleCloseProject}
+        onRequestDeleteProject={handleRequestDeleteProject}
         onAddProject={handleAddProject}
       />
 
@@ -607,6 +632,46 @@ function App() {
 
       {showPalette && (
         <CommandPalette commands={commands} onClose={() => setShowPalette(false)} />
+      )}
+
+      {projectDeleteTarget && (
+        <div
+          className="project-delete-modal-overlay"
+          onClick={handleCancelDeleteProject}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            handleCancelDeleteProject();
+          }}
+        >
+          <div
+            className="project-delete-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="project-delete-modal-header">
+              <div className="project-delete-modal-icon">!</div>
+              <div>
+                <div className="project-delete-modal-title">Delete project?</div>
+                <div className="project-delete-modal-subtitle">
+                  This removes the project from the sidebar and closes its open tabs.
+                </div>
+              </div>
+            </div>
+
+            <div className="project-delete-modal-body">
+              <div className="project-delete-modal-name">{projectDeleteTarget.name}</div>
+              <div className="project-delete-modal-path">{projectDeleteTarget.path}</div>
+            </div>
+
+            <div className="project-delete-modal-actions">
+              <button className="project-delete-modal-btn" onClick={handleCancelDeleteProject}>
+                Cancel
+              </button>
+              <button className="project-delete-modal-btn project-delete-modal-btn-danger" onClick={handleConfirmDeleteProject}>
+                Delete project
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
