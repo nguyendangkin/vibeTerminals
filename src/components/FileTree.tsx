@@ -46,7 +46,7 @@ function TreeNode({ entry, depth, onOpenFile, onDeleteEntry, onRenameEntry }: Tr
     <div className="tree-node">
       <div
         className="tree-row"
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
+        style={{ paddingLeft: `${depth * 16 + 6}px` }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
@@ -132,7 +132,6 @@ export function FileTree({ rootPath, tree, onOpenFile, onDeleteEntry, onRenameEn
     <div className="filetree">
       <div className="tree-node">
         <div className="tree-row tree-root">
-          <span className="tree-icon">▾</span>
           <span className="tree-name">{rootName}</span>
         </div>
         <div className="tree-children">
