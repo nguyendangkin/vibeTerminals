@@ -332,6 +332,17 @@ body,
   flex-shrink: 0;
 }
 
+.project-bar-item-dragging {
+  opacity: 0.35;
+}
+
+.project-bar-ghost {
+  opacity: 0.92;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+  transition: none;
+  transform: scale(1.08);
+}
+
 .project-bar-avatar-btn {
   width: 36px;
   height: 36px;
@@ -355,6 +366,8 @@ body,
 .project-bar-item-active .project-bar-avatar-btn {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.05);
+  outline: 1.5px dashed rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
 }
 
 .project-bar-avatar {

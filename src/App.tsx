@@ -395,6 +395,15 @@ function App() {
     setTopTab(projectTopTabsRef.current[id] ?? "explorer");
   }, []);
 
+  const handleReorderProjects = useCallback((fromIndex: number, toIndex: number) => {
+    setProjects((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }, []);
+
   const handleRequestDeleteProject = useCallback((id: string) => {
     const target = projects.find((p) => p.id === id) ?? null;
     setProjectDeleteTarget(target);
@@ -479,6 +488,7 @@ function App() {
         onSelectProject={handleSelectProject}
         onRequestDeleteProject={handleRequestDeleteProject}
         onAddProject={handleAddProject}
+        onReorderProjects={handleReorderProjects}
       />
 
       {/* Right area: top bar + content */}
