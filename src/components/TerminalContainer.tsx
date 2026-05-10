@@ -563,6 +563,26 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
   );
 
   // ── Persist layout (debounced) ──────────────────────────────────────────
+  // Capture listener on the term-body to catch mousedown on xterm.js scrollbar
+  // (xterm.js may stop propagation, so pane-wrapper onMouseDown never fires)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (dragJustEnded.current) {
+        dragJustEnded.current = false;
+        return;
+      }
+      const wrapper = (e.target as HTMLElement).closest(".term-pane-wrapper") as HTMLElement | null;
+      if (wrapper) {
+        const leafId = wrapper.getAttribute("data-leaf-id");
+        if (leafId) setActiveId(leafId);
+      }
+    };
+    container.addEventListener("pointerdown", onPointerDown, true);
+    return () => container.removeEventListener("pointerdown", onPointerDown, true);
+  }, []);
+
   useEffect(() => {
     const state: PersistedTerminalLayout = {
       root,

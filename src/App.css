@@ -1202,7 +1202,6 @@ body,
   position: absolute !important;
   background: transparent !important;
   width: 14px !important;
-  display: block !important;
   right: 0 !important;
   top: 0 !important;
   bottom: 0 !important;
@@ -1211,8 +1210,8 @@ body,
   transition: opacity 0.15s ease-in-out !important;
 }
 
-/* Show only when active */
-.terminal-xterm-host.terminal-xterm-active .terminal-xterm-inner .xterm .scrollbar.vertical {
+/* Show only when active and has overflow */
+.terminal-xterm-host.terminal-xterm-active.terminal-xterm-overflow .terminal-xterm-inner .xterm .scrollbar.vertical {
   opacity: 1 !important;
 }
 

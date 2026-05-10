@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
+import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { invoke } from "@tauri-apps/api/core";
@@ -37,18 +37,25 @@ export interface TerminalPanelHandle {
 export const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>(
 function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand, onFocus, onContextMenu, onCommandChange }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const fitRafRef = useRef<number | null>(null);
   const fitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overflowRafRef = useRef<number | null>(null);
   const termIdRef = useRef<number | null>(null);
   const unlistenOutRef = useRef<UnlistenFn | null>(null);
   const unlistenExitRef = useRef<UnlistenFn | null>(null);
+  const onFocusRef = useRef(onFocus);
+  useEffect(() => { onFocusRef.current = onFocus; });
+
   const onContextMenuRef = useRef(onContextMenu);
   useEffect(() => { onContextMenuRef.current = onContextMenu; });
 
   const onCommandChangeRef = useRef(onCommandChange);
   useEffect(() => { onCommandChangeRef.current = onCommandChange; });
+
+  const [hasOverflow, setHasOverflow] = useState(false);
 
   const inputBufferRef = useRef<string>("");
   const lastCommandRef = useRef<string>("");
@@ -109,6 +116,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
       const unOut = await listen<TerminalOutputPayload>("terminal-output", (ev) => {
         if (ev.payload.id === id) {
           term.write(new Uint8Array(ev.payload.data));
+          scheduleOverflowCheck();
         }
       });
 
@@ -130,7 +138,10 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
 
       // Progressive retries to fit after spawn — container layout may take a few frames
       for (const delay of [0, 16, 50, 150]) {
-        setTimeout(() => { try { fitRef.current?.fit(); } catch { /* ignore */ } }, delay);
+        setTimeout(() => {
+          try { fitRef.current?.fit(); } catch { /* ignore */ }
+          scheduleOverflowCheck();
+        }, delay);
       }
 
       return id;
@@ -193,6 +204,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
     if (!fitRef.current || !termRef.current) return;
     try {
       fitRef.current.fit();
+      scheduleOverflowCheck();
       const id = termIdRef.current;
       if (id !== null) {
         invoke("terminal_resize", {
@@ -203,6 +215,23 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
       }
     } catch { /* ignore */ }
   }, []);
+
+  const checkOverflow = useCallback(() => {
+    const term = termRef.current;
+    if (!term) return;
+    const overflow = term.buffer.active.length > term.rows;
+    setHasOverflow(prev => prev === overflow ? prev : overflow);
+  }, []);
+
+  const scheduleOverflowCheck = useCallback(() => {
+    if (overflowRafRef.current !== null) {
+      cancelAnimationFrame(overflowRafRef.current);
+    }
+    overflowRafRef.current = requestAnimationFrame(() => {
+      overflowRafRef.current = null;
+      checkOverflow();
+    });
+  }, [checkOverflow]);
 
   const scheduleFit = useCallback(() => {
     if (fitRafRef.current !== null) {
@@ -264,6 +293,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
     term.loadAddon(fitAddon);
     fitRef.current = fitAddon;
     termRef.current = term;
+    term.onRender(() => scheduleOverflowCheck());
 
     term.open(containerRef.current);
     try { fitAddon.fit(); } catch { /* ignore */ }
@@ -413,15 +443,25 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
     }
   }, [active]);
 
+  // Use native capture listener so scrollbar clicks (which xterm.js may intercept)
+  // still trigger focus on this terminal
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const onPointerDown = () => onFocusRef.current?.();
+    host.addEventListener("pointerdown", onPointerDown, true);
+    return () => host.removeEventListener("pointerdown", onPointerDown, true);
+  }, []);
+
   // Log instanceId usage to prevent lint warning
   void instanceId;
 
   return (
     <div style={{ display: visible ? "flex" : "none", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <div
-        className={`terminal-xterm-host${active ? " terminal-xterm-active" : ""}`}
+        ref={hostRef}
+        className={`terminal-xterm-host${active ? " terminal-xterm-active" : ""}${hasOverflow ? " terminal-xterm-overflow" : ""}`}
         style={{ flex: 1, minHeight: 0, minWidth: 0, position: "relative" }}
-        onMouseDown={onFocus}
       >
         <div 
           ref={containerRef} 
