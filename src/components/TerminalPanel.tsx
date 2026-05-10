@@ -423,7 +423,6 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
         style={{ flex: 1, minHeight: 0, minWidth: 0 }}
         onMouseDown={onFocus}
       />
-      <div style={{ height: 14, flexShrink: 0, background: "var(--bg-primary)" }} />
     </div>
   );
 });

@@ -1,4 +1,4 @@
-﻿* {
+* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -1164,7 +1164,7 @@ body,
   flex: 1;
   min-width: 0;
   min-height: 0;
-  padding: 8px 0 0 10px;
+  padding: 0;
   background: var(--bg-primary);
   box-sizing: border-box;
 }
@@ -1176,7 +1176,6 @@ body,
 
 .terminal-xterm-host .xterm .xterm-screen {
   background-color: var(--bg-primary);
-  clip-path: inset(0 10px 0 0);
 }
 
 .terminal-xterm-host .xterm .xterm-viewport {
