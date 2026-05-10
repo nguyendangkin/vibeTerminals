@@ -7,18 +7,17 @@ export function NoteList({ activeFilter, onFilterChange }: NoteListProps) {
   return (
     <div className="note-sidebar">
       <div className="note-sidebar-header">
-        <span>NOTES</span>
+        <span className="note-sidebar-title">NOTES</span>
       </div>
-
-      <div className="note-filter-cards">
+      <div className="note-sidebar-body">
         <button
-          className={`note-filter-card${activeFilter === "task" ? " active" : ""}`}
+          className={`note-filter-item${activeFilter === "task" ? " active" : ""}`}
           onClick={() => onFilterChange("task")}
         >
           Task Notes
         </button>
         <button
-          className={`note-filter-card${activeFilter === "prompt" ? " active" : ""}`}
+          className={`note-filter-item${activeFilter === "prompt" ? " active" : ""}`}
           onClick={() => onFilterChange("prompt")}
         >
           Prompt Notes

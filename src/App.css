@@ -1230,10 +1230,6 @@ body,
   padding: 0 8px 0 10px;
   height: 26px;
   min-height: 26px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  color: var(--text-secondary);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0)),
     var(--bg-primary);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -1241,128 +1237,236 @@ body,
   user-select: none;
 }
 
-.note-filter-cards {
+.note-sidebar-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.note-sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+}
+
+.note-filter-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 28px;
+  padding: 0 12px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.note-filter-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.note-filter-item.active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.note-main {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px;
+  overflow: hidden;
+}
+
+.note-main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  height: 26px;
+  min-height: 26px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0)),
+    var(--bg-primary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
+  user-select: none;
 }
 
-.note-filter-card {
-  padding: 8px 10px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+.note-main-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
   color: var(--text-secondary);
-  font-size: 12px;
-  font-family: inherit;
   font-weight: 600;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.1s, border-color 0.1s, color 0.1s;
-}
-
-.note-filter-card:hover {
-  color: var(--text-primary);
-  border-color: var(--text-secondary);
-}
-
-.note-filter-card.active {
-  color: var(--text-primary);
-  border-color: var(--accent);
-  background: rgba(0, 122, 204, 0.08);
+  letter-spacing: 0.2px;
 }
 
 .note-add-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: var(--bg-tertiary);
-  border: 1px dashed var(--border-color);
-  border-radius: 4px;
+  gap: 3px;
+  width: auto;
+  height: 20px;
+  padding: 0 6px;
+  background: none;
+  border: none;
   color: var(--text-secondary);
   font-size: 11px;
   font-family: inherit;
   font-weight: 600;
   cursor: pointer;
-  flex-shrink: 0;
+  border-radius: 3px;
+  transition: color 0.1s, background 0.1s;
 }
 
 .note-add-btn:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: rgba(0, 122, 204, 0.08);
-}
-
-.note-list-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 16px;
-}
-
-.note-list-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 14px;
-  font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 12px;
-  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.note-list-empty {
-  padding: 32px 16px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  text-align: center;
-}
-
-/* â”€â”€â”€ Note cards (main area) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-.note-cards {
+.note-main-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-bottom: 16px;
-}
-
-.note-card {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
+  gap: 10px;
   padding: 12px;
-  position: relative;
 }
 
-.note-card:hover {
-  border-color: var(--text-secondary);
-}
-
-.note-card-delete {
-  position: absolute;
-  top: 6px;
-  right: 6px;
+.note-empty {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  opacity: 0.5;
+  user-select: none;
+}
+
+/* â”€â”€â”€ Note cards (main area) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.note-card {
+  display: flex;
+  flex-direction: row;
+  background: var(--bg-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.note-card:focus-within {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.note-card-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  min-width: 22px;
+  background: var(--bg-tertiary);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: grab;
+  color: var(--text-secondary);
+  opacity: 0.35;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.note-card-handle:hover {
+  opacity: 0.85;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.note-card-handle:active {
+  cursor: grabbing;
+  opacity: 1;
+}
+
+.note-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.note-card-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 0 10px;
+  height: 26px;
+  min-height: 26px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.note-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.note-card-title-input {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  outline: none;
+}
+
+.note-card-title-input:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.note-card-title-input:focus {
+  background: var(--bg-tertiary);
+}
+
+.note-card-title-input::placeholder {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.note-card-delete {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
   border-radius: 3px;
-  opacity: 0;
-}
-
-.note-card:hover .note-card-delete {
-  opacity: 1;
+  transition: color 0.1s, background 0.1s;
 }
 
 .note-card-delete:hover {
@@ -1370,55 +1474,62 @@ body,
   background: rgba(244, 71, 71, 0.12);
 }
 
-.note-card-title-input {
-  width: 100%;
-  padding: 6px 8px;
-  margin-bottom: 8px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 600;
-  font-family: inherit;
-  outline: none;
-  box-sizing: border-box;
-}
-
-.note-card-title-input:focus {
-  border-color: var(--accent);
-}
-
-.note-card-title-input::placeholder {
-  color: var(--text-secondary);
-}
-
 .note-card-content-textarea {
   width: 100%;
-  padding: 8px;
+  padding: 8px 10px 10px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border: none;
   color: var(--text-primary);
   font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
   font-size: 13px;
-  line-height: 1.6;
-  resize: vertical;
+  line-height: 1.5;
+  resize: none;
   outline: none;
   box-sizing: border-box;
-  min-height: 80px;
+  min-height: 48px;
+  field-sizing: content;
 }
 
-.note-card-content-textarea:focus {
-  border-color: var(--accent);
+.note-card:focus-within .note-card-content-textarea {
+  background: var(--bg-tertiary);
 }
 
 .note-card-content-textarea::placeholder {
   color: var(--text-secondary);
-  font-family: inherit;
+  font-family: "Segoe UI", "SF Pro Text", -apple-system, sans-serif;
+  font-size: 12px;
 }
 
 /* â”€â”€â”€ Context submenu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Note drag-and-drop ────────────────────────────────────────────────────── */
+.note-card-wrapper {
+  flex-shrink: 0;
+}
+
+.note-card-dragging {
+  opacity: 0.35;
+}
+
+.note-card-ghost {
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 360px;
+}
+
+.note-card-ghost-inner {
+  background: var(--bg-tertiary);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  padding: 4px 10px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
 .context-item-has-submenu {
   display: flex;
   justify-content: space-between;

@@ -6,7 +6,7 @@ import { EditorPanel } from "./components/EditorPanel";
 import { FileTree } from "./components/FileTree";
 import { CommandPalette } from "./components/CommandPalette";
 import { NoteList } from "./components/NoteList";
-import { NoteCard } from "./components/NoteCard";
+import { NoteCardList } from "./components/NoteCardList";
 import { ProjectBar } from "./components/ProjectBar";
 import { TopBar, type TopTab } from "./components/TopBar";
 import { TerminalContainer } from "./components/TerminalContainer";
@@ -366,6 +366,30 @@ function App() {
     }));
   }, [activeProjectId]);
 
+  const handleReorderNotes = useCallback(
+    (noteId: string, toFilteredIndex: number) => {
+      if (!activeProjectId) return;
+      setNotes((prev) => {
+        const all = prev[activeProjectId] ?? [];
+        const fromIndex = all.findIndex((n) => n.id === noteId);
+        if (fromIndex === -1) return prev;
+
+        const typeNotes = all.filter((n) => n.type === activeNoteFilter);
+        const targetNote = typeNotes[toFilteredIndex];
+        if (!targetNote) return prev;
+
+        const toIndex = all.findIndex((n) => n.id === targetNote.id);
+        if (toIndex === -1 || toIndex === fromIndex) return prev;
+
+        const next = [...all];
+        const [moved] = next.splice(fromIndex, 1);
+        next.splice(toIndex, 0, moved);
+        return { ...prev, [activeProjectId]: next };
+      });
+    },
+    [activeProjectId, activeNoteFilter],
+  );
+
   // ── sidebar resize ────────────────────────────────────────────────────────
   const handleResizeStart = useCallback((e: RMouseEvent) => {
     e.preventDefault(); setResizingSidebar(true);
@@ -549,27 +573,21 @@ function App() {
                 (() => {
                   const filtered = activeNotes.filter((n) => n.type === activeNoteFilter);
                   return (
-                    <div className="note-list-panel">
-                      <div className="note-list-panel-header">
-                        <span>{activeNoteFilter === "task" ? "Task Notes" : "Prompt Notes"}</span>
+                    <div className="note-main">
+                      <div className="note-main-header">
+                        <span className="note-main-title">
+                          {activeNoteFilter === "task" ? "Task Notes" : "Prompt Notes"}
+                        </span>
                         <button className="note-add-btn" onClick={() => handleAddNote(activeNoteFilter)}>
                           + Add Note
                         </button>
                       </div>
-                      {filtered.length === 0 ? (
-                        <div className="note-list-empty">No notes yet</div>
-                      ) : (
-                        <div className="note-cards">
-                          {filtered.map((note) => (
-                            <NoteCard
-                              key={note.id}
-                              note={note}
-                              onUpdate={handleUpdateNote}
-                              onDelete={handleDeleteNote}
-                            />
-                          ))}
-                        </div>
-                      )}
+                      <NoteCardList
+                        notes={filtered}
+                        onUpdate={handleUpdateNote}
+                        onDelete={handleDeleteNote}
+                        onReorder={handleReorderNotes}
+                      />
                     </div>
                   );
                 })()
