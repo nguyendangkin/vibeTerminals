@@ -249,6 +249,19 @@ body,
   padding-left: 2px;
 }
 
+.top-bar-brand {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.28);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  user-select: none;
+  white-space: nowrap;
+}
+
 /* â”€â”€â”€ Window Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .window-controls {
   display: flex;

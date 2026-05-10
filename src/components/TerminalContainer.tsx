@@ -7,6 +7,7 @@ import React, {
   useEffect,
   type MouseEvent as RMouseEvent,
 } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { Note } from "../types";
 import { TerminalPanel, type TerminalPanelHandle } from "./TerminalPanel";
 
@@ -721,7 +722,6 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
             const others = leaves.filter((l) => l.id !== ctxMenu.sourceId);
             const taskNotes = (notesRef.current ?? []).filter((n) => n.type === "task");
             const promptNotes = (notesRef.current ?? []).filter((n) => n.type === "prompt");
-            const hasNotes = taskNotes.length > 0 || promptNotes.length > 0;
             const hasOthers = others.length > 0;
             const closeAll = () => { setCtxMenu(null); setSubmenuType(null); };
             const noteTypes = [
@@ -729,8 +729,7 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
               { type: "prompt" as const, label: "Prompt Note", items: promptNotes },
             ].filter(({ items }) => items.length > 0);
 
-            // Don't show menu if nothing to show
-            if (!hasSelection && !hasNotes && !hasOthers) return null;
+            // Always show menu — Paste is always available
 
             return (
               <div
@@ -766,6 +765,23 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
                       ))}
                     </>
                   )}
+                  {!hasSelection && (
+                    <div
+                      className="context-item"
+                      onClick={() => {
+                        invoke<string>("read_clipboard").then((clipText) => {
+                          if (clipText) {
+                            const panel = panelRefsMap.current.get(ctxMenu.sourceId);
+                            if (panel) panel.writeText(clipText);
+                          }
+                        }).catch(() => {});
+                        closeAll();
+                      }}
+                    >
+                      Paste
+                    </div>
+                  )}
+                  {!hasSelection && hasOthers && <div className="context-separator" />}
                   {hasOthers && !hasSelection && (
                     others.map((l) => (
                       <div

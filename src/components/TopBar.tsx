@@ -196,6 +196,7 @@ export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlob
       </div>
       <div className="top-bar-center" data-tauri-drag-region />
       <div className="top-bar-actions">
+        <div className="top-bar-brand">vibeTerminals</div>
         <div className="window-controls">
           <button
             className="window-btn window-minimize"

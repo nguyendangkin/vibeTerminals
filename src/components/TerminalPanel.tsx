@@ -202,6 +202,8 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
 
   const doFit = useCallback(() => {
     if (!fitRef.current || !termRef.current) return;
+    const el = containerRef.current;
+    if (!el || el.clientWidth === 0 || el.clientHeight === 0) return;
     try {
       fitRef.current.fit();
       scheduleOverflowCheck();
