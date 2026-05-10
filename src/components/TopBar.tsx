@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-export type TopTab = "terminal" | "explorer" | "note";
+export type TopTab = "terminal" | "explorer" | "note" | "git";
 
 interface TopBarProps {
   activeTab: TopTab | null;
@@ -10,6 +10,7 @@ interface TopBarProps {
   onReloadAll?: () => void;
   globalShell?: string;
   onGlobalShellChange?: (shell: string) => void;
+  gitChangesCount?: number;
 }
 
 const TABS: { id: TopTab; label: string; icon: ReactNode }[] = [
@@ -41,6 +42,19 @@ const TABS: { id: TopTab; label: string; icon: ReactNode }[] = [
       </svg>
     ),
   },
+  {
+    id: "git",
+    label: "Git",
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <circle cx="12" cy="18" r="3"/>
+        <circle cx="6" cy="6" r="3"/>
+        <circle cx="18" cy="6" r="3"/>
+        <path d="M6 9v4a6 6 0 0 0 6 6"/>
+        <path d="M18 9v4a6 6 0 0 1-6 6"/>
+      </svg>
+    ),
+  },
 ];
 
 function getTabHint(tab: TopTab) {
@@ -51,6 +65,8 @@ function getTabHint(tab: TopTab) {
       return "Ctrl+Shift+E";
     case "note":
       return "Ctrl+Shift+N";
+    case "git":
+      return "Ctrl+Shift+G";
   }
 }
 
@@ -60,7 +76,7 @@ const SHELL_LABELS: Record<string, string> = {
   pwsh: "PS Core",
 };
 
-export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlobalShellChange }: TopBarProps) {
+export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlobalShellChange, gitChangesCount }: TopBarProps) {
   const appWindow = getCurrentWindow();
   const [maximized, setMaximized] = useState(false);
   const [shellOpen, setShellOpen] = useState(false);
@@ -125,6 +141,9 @@ export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlob
               {icon}
             </span>
             <span className="top-tab-label">{label}</span>
+            {id === "git" && gitChangesCount !== undefined && gitChangesCount > 0 && (
+              <span className="top-tab-badge">{gitChangesCount}</span>
+            )}
           </button>
         ))}
         {activeTab === "terminal" && onGlobalShellChange && (

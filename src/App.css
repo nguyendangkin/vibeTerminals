@@ -1697,3 +1697,396 @@ body,
 .project-delete-modal-btn-danger:hover {
   background: rgba(217, 98, 98, 0.28);
 }
+
+/* ── Top tab badge ─────────────────────────────────────────────────────────── */
+
+.top-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--bg-primary);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* ── Git page / panel ─────────────────────────────────────────────────────── */
+
+.git-page {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.git-page-left {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--border-color);
+}
+
+.git-page-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+  overflow: hidden;
+}
+
+.git-graph-resize-handle {
+  width: 4px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.1s;
+}
+
+.git-graph-resize-handle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ── Git panel (left: changes list) ──────────────────────────────────────── */
+
+.git-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  user-select: none;
+}
+
+.git-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 0 10px;
+  height: 26px;
+  min-height: 26px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0)),
+    var(--bg-primary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.git-panel-title {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.git-panel-counts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.git-discard-btn {
+  display: flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  margin-left: 6px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: color 0.1s, background 0.1s;
+}
+
+.git-discard-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.git-discard-confirm {
+  color: #ff9b9b;
+  background: rgba(217, 98, 98, 0.15);
+}
+
+.git-discard-confirm:hover {
+  color: #ff9b9b;
+  background: rgba(217, 98, 98, 0.25);
+}
+
+.git-count-staged { color: var(--text-primary); }
+.git-count-unstaged { color: var(--text-primary); }
+.git-count-untrack { color: var(--text-secondary); }
+
+.git-ahead-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 6px;
+  margin-left: 6px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.git-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Commit section ───────────────────────────────────────────────────────── */
+
+.git-commit-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.git-commit-input {
+  width: 100%;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1.4;
+  resize: vertical;
+  min-height: 36px;
+}
+
+.git-commit-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.git-commit-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.git-commit-btn {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.git-commit-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.git-commit-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.git-panel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+/* ── Git section headers (Staged / Changes / Untracked) ──────────────────── */
+
+.git-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.git-section-header {
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 10px;
+  height: 26px;
+  min-height: 26px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0)),
+    var(--bg-primary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* ── Git file items (matching tree-row style) ────────────────────────────── */
+
+.git-file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  margin: 0 4px;
+  padding: 0 6px;
+  font-size: 13px;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+
+.git-file-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.git-file-name {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.git-file-dir {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50%;
+  flex-shrink: 1;
+}
+
+/* ── Git graph (right: commit history) ────────────────────────────────────── */
+
+.git-graph {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.git-graph-header {
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 10px;
+  height: 26px;
+  min-height: 26px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.012), rgba(255, 255, 255, 0)),
+    var(--bg-primary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.git-graph-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.git-graph-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", "Consolas", monospace;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.git-graph-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  margin: 0 4px;
+  padding: 0 6px;
+  white-space: nowrap;
+  min-width: 0;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.git-graph-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.git-graph-graph {
+  flex-shrink: 0;
+  color: #6a6a6a;
+  white-space: pre;
+  font-size: 11px;
+}
+
+.git-graph-hash {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.git-graph-date {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  min-width: 85px;
+}
+
+.git-graph-msg {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.git-graph-refs {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  margin-left: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 250px;
+  white-space: nowrap;
+}

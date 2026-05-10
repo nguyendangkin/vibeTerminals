@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type MouseEvent as RMouseEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { EditorTab, DirEntry, Project, WorkspaceState, type Note } from "./types";
+import { listen } from "@tauri-apps/api/event";
+import { EditorTab, DirEntry, Project, WorkspaceState, type Note, type GitStatus, type GitLog } from "./types";
 import { TabBar } from "./components/TabBar";
 import { EditorPanel } from "./components/EditorPanel";
 import { FileTree } from "./components/FileTree";
@@ -11,6 +12,8 @@ import { ProjectBar } from "./components/ProjectBar";
 import { TopBar, type TopTab } from "./components/TopBar";
 import { TerminalContainer } from "./components/TerminalContainer";
 import { WelcomeScreen } from "./components/WelcomeScreen";
+import { GitPanel } from "./components/GitPanel";
+import { GitGraph } from "./components/GitGraph";
 import "./App.css";
 
 let tabCounter = 0;
@@ -61,6 +64,12 @@ function App() {
   const [resizingSidebar, setResizingSidebar] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [projectDeleteTarget, setProjectDeleteTarget] = useState<Project | null>(null);
+
+  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
+  const [gitLog, setGitLog] = useState<GitLog | null>(null);
+  const [gitAhead, setGitAhead] = useState(0);
+  const [gitLeftWidth, setGitLeftWidth] = useState(300);
+  const [resizingGit, setResizingGit] = useState(false);
 
   const showTerminal = topTab === "terminal";
   const terminalReloadRef = useRef<Map<string, () => void>>(new Map());
@@ -404,6 +413,17 @@ function App() {
     return () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
   }, [resizingSidebar]);
 
+  // ── git panel resize ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!resizingGit) return;
+    const onMove = (e: MouseEvent) =>
+      setGitLeftWidth(Math.max(200, Math.min(500, e.clientX - 52)));
+    const onUp = () => setResizingGit(false);
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
+  }, [resizingGit]);
+
   // ── top bar & panel handlers ─────────────────────────────────────────────
   const handleTopTab = useCallback((tab: TopTab) => {
     setTopTab((prev) => {
@@ -435,6 +455,87 @@ function App() {
       return next;
     });
   }, []);
+
+  // ── git watcher (real-time via file system events) ──────────────────────────
+  useEffect(() => {
+    if (!rootPath) {
+      setGitStatus(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    // Initial fetch
+    invoke<GitStatus>("git_status", { folder: rootPath })
+      .then((s) => { if (!cancelled) setGitStatus(s); })
+      .catch(() => { if (!cancelled) setGitStatus(null); });
+
+    // Start file system watcher + listen for change events
+    let unlisten: (() => void) | undefined;
+    (async () => {
+      try {
+        await invoke("start_git_watch", { folder: rootPath });
+      } catch { /* not a git repo or git not installed */ }
+
+      if (cancelled) return;
+
+      try {
+        unlisten = await listen<GitStatus | null>("git-status-changed", (event) => {
+          if (!cancelled) setGitStatus(event.payload);
+        });
+      } catch { /* ignore */ }
+    })();
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+      invoke("stop_git_watch").catch(() => {});
+    };
+  }, [rootPath]);
+
+  // ── git log fetch (when git tab is active) ──────────────────────────────────
+  useEffect(() => {
+    if (!rootPath || topTab !== "git") {
+      setGitLog(null);
+      setGitAhead(0);
+      return;
+    }
+    let cancelled = false;
+    invoke<GitLog>("git_log", { folder: rootPath })
+      .then((log) => { if (!cancelled) setGitLog(log); })
+      .catch(() => { if (!cancelled) setGitLog(null); });
+    invoke<number>("git_ahead_count", { folder: rootPath })
+      .then((n) => { if (!cancelled) setGitAhead(n); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [rootPath, topTab]);
+
+  // ── git actions ─────────────────────────────────────────────────────────────
+  const handleDiscardAll = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      await invoke("git_discard_all", { folder: rootPath });
+      const status = await invoke<GitStatus>("git_status", { folder: rootPath });
+      setGitStatus(status);
+      const log = await invoke<GitLog>("git_log", { folder: rootPath });
+      setGitLog(log);
+      const n = await invoke<number>("git_ahead_count", { folder: rootPath });
+      setGitAhead(n);
+    } catch (err) { console.error("Discard failed:", err); }
+  }, [rootPath]);
+
+  const handleCommit = useCallback(async (message: string) => {
+    if (!rootPath) return;
+    try {
+      await invoke("git_commit", { folder: rootPath, message });
+      const status = await invoke<GitStatus>("git_status", { folder: rootPath });
+      setGitStatus(status);
+      const log = await invoke<GitLog>("git_log", { folder: rootPath });
+      setGitLog(log);
+      const n = await invoke<number>("git_ahead_count", { folder: rootPath });
+      setGitAhead(n);
+    } catch (err) { console.error("Commit failed:", err); }
+  }, [rootPath]);
 
   const handleRequestDeleteProject = useCallback((id: string) => {
     const target = projects.find((p) => p.id === id) ?? null;
@@ -468,6 +569,7 @@ function App() {
     if (ctrl && shift && key === "p") { e.preventDefault(); setShowPalette(true); return; }
     if (ctrl && shift && key === "e") { e.preventDefault(); handleTopTab("explorer"); return; }
     if (ctrl && shift && key === "n") { e.preventDefault(); handleTopTab("note"); return; }
+    if (ctrl && shift && key === "g") { e.preventDefault(); handleTopTab("git"); return; }
     if (ctrl && key === "tab") {
       e.preventDefault();
       if (tabs.length < 2) return;
@@ -499,6 +601,7 @@ function App() {
     { id: "close-tab", label: "Close Tab", shortcut: "Ctrl+W", action: () => activeTabId && handleCloseTab(activeTabId) },
     { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => handleTopTab("terminal") },
     { id: "note-panel", label: "Notes Panel", shortcut: "Ctrl+Shift+N", action: () => handleTopTab("note") },
+    { id: "git-panel", label: "Source Control", shortcut: "Ctrl+Shift+G", action: () => handleTopTab("git") },
   ];
 
   // ── render ────────────────────────────────────────────────────────────────
@@ -532,6 +635,7 @@ function App() {
               setShellTick((n) => n + 1);
             }
           }}
+          gitChangesCount={gitStatus?.total_changes}
         />
 
         <div className="content-area" style={topTab === "terminal" ? { display: "none" } : undefined}>
@@ -623,6 +727,42 @@ function App() {
                   </>
                 )
               )}
+            </div>
+          )}
+
+          {/* Git page: split layout — left=changes, right=graph */}
+          {topTab === "git" && (
+            <div className="git-page">
+              <div className="git-page-left" style={{ width: gitLeftWidth }}>
+                {gitStatus ? (
+                  <GitPanel
+                    entries={gitStatus.entries}
+                    stagedCount={gitStatus.staged_count}
+                    unstagedCount={gitStatus.unstaged_count}
+                    untrackedCount={gitStatus.untracked_count}
+                    aheadCount={gitAhead}
+                    onDiscardAll={handleDiscardAll}
+                    onCommit={handleCommit}
+                  />
+                ) : (
+                  <div className="project-empty-state">
+                    <p>Not a git repository</p>
+                  </div>
+                )}
+              </div>
+              <div
+                className="git-graph-resize-handle"
+                onMouseDown={(e) => { e.preventDefault(); setResizingGit(true); }}
+              />
+              <div className="git-page-right">
+                {gitLog ? (
+                  <GitGraph log={gitLog} />
+                ) : (
+                  <div className="git-graph">
+                    <div className="git-graph-empty">Loading...</div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
