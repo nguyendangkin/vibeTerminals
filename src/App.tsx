@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, type MouseEvent as RMouseEvent } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, type MouseEvent as RMouseEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { EditorTab, DirEntry, Project, WorkspaceState, type Note } from "./types";
 import { TabBar } from "./components/TabBar";
@@ -418,6 +418,15 @@ function App() {
     setTopTab(projectTopTabsRef.current[id] ?? "explorer");
   }, []);
 
+  // Stable-sorted copy for terminal area: React's insertBefore (when
+  // reordering DOM nodes) detaches xterm.js canvas elements in WebView2,
+  // resetting them. Terminal area only shows one project at a time, so
+  // DOM order is irrelevant — sort by ID to keep it stable.
+  const projectsForTerminals = useMemo(
+    () => [...projects].sort((a, b) => a.id.localeCompare(b.id)),
+    [projects],
+  );
+
   const handleReorderProjects = useCallback((fromIndex: number, toIndex: number) => {
     setProjects((prev) => {
       const next = [...prev];
@@ -622,7 +631,7 @@ function App() {
         {/* Per-project terminals — always mounted, hidden via CSS when inactive.
             This preserves PTY state when switching between projects. */}
         <div className="terminal-area" style={showTerminal ? undefined : { display: "none" }}>
-          {projects.map((p) => {
+          {projectsForTerminals.map((p) => {
             const active = showTerminal && p.id === activeProjectId;
             return (
               <div
