@@ -23,7 +23,6 @@
   --topbar-control-size: 36px;
 }
 
-
 html,
 body,
 #root {
@@ -63,7 +62,6 @@ body,
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
-
 
 .filetree,
 .command-palette-list,
@@ -596,7 +594,6 @@ body,
   background: var(--accent);
 }
 
-
 .project-empty-state {
   flex: 1;
   display: flex;
@@ -789,7 +786,6 @@ body,
   flex-direction: column;
   overflow: hidden;
 }
-
 
 /* Command palette */
 .command-palette-overlay {
@@ -1034,7 +1030,6 @@ body,
   color: var(--text-primary);
 }
 
-
 /* â”€â”€â”€ Terminal Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .term-resize-handle {
   height: 4px;
@@ -1198,43 +1193,9 @@ body,
   left: auto !important;
   right: -25px !important;
   width: 12px !important;
-  opacity: 0; /* Make native scrollbar invisible but functional */
+  opacity: 0; /* Hide native scrollbar */
+  scrollbar-width: none; /* Firefox */
 }
-
-
-
-
-
-
-/* Custom terminal scrollbar styling (Smart Thread - Large Hit Area) */
-.terminal-xterm-host .xterm-viewport::-webkit-scrollbar {
-  width: 12px !important;
-}
-
-.terminal-xterm-host .xterm-viewport::-webkit-scrollbar-button {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-}
-
-
-
-.terminal-xterm-host .xterm-viewport::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
-.terminal-xterm-host .xterm-viewport::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.3) !important;
-  border-radius: 10px !important;
-  border: 5px solid transparent; /* Creates a 2px visible thumb inside 12px area */
-  background-clip: padding-box;
-}
-
-/* Firefox fallback */
-.terminal-xterm-host .xterm-viewport {
-  scrollbar-width: none;
-}
-
 
 /* Support for custom scrollbar classes (Virtual Scrollbar) */
 .terminal-xterm-inner .xterm .scrollbar.vertical {
@@ -1255,17 +1216,13 @@ body,
   opacity: 1 !important;
 }
 
-
-
-
-
 .terminal-xterm-inner .xterm .scrollbar.vertical div {
   background-color: rgba(255, 255, 255, 0.15) !important;
   border-radius: 10px !important;
   border: 5px solid transparent !important; /* Creates a 4px visible thumb (14 - 10) */
   background-clip: padding-box !important;
-  cursor: pointer !important;
-  transition: none !important;
+  cursor: pointer;
+  transition: none;
   width: 100% !important;
   transform: none !important;
   opacity: 1 !important;
@@ -1273,23 +1230,8 @@ body,
 
 .terminal-xterm-inner .xterm .scrollbar.vertical div:hover {
   background-color: rgba(255, 255, 255, 0.15) !important;
-  border-width: 5px !important; 
-  width: 100% !important;
+  border-width: 5px !important;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 .term-pane-wrapper {
   background: var(--bg-primary);
@@ -1308,10 +1250,6 @@ body,
 
 .term-pane-wrapper-dragging {
   opacity: 0.35;
-}
-
-.term-pane-wrapper.terminal-xterm-active {
-  border-color: var(--accent-primary) !important;
 }
 
 .terminal-xterm-host.terminal-xterm-active::after {
