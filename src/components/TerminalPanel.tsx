@@ -416,11 +416,14 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
   void instanceId;
 
   return (
-    <div
-      ref={containerRef}
-      className={`terminal-xterm-host${active ? " terminal-xterm-active" : ""}`}
-      style={{ display: visible ? "flex" : "none", flex: 1, minHeight: 0, minWidth: 0 }}
-      onMouseDown={onFocus}
-    />
+    <div style={{ display: visible ? "flex" : "none", flexDirection: "column", flex: 1, minHeight: 0 }}>
+      <div
+        ref={containerRef}
+        className={`terminal-xterm-host${active ? " terminal-xterm-active" : ""}`}
+        style={{ flex: 1, minHeight: 0, minWidth: 0 }}
+        onMouseDown={onFocus}
+      />
+      <div style={{ height: 14, flexShrink: 0, background: "var(--bg-primary)" }} />
+    </div>
   );
 });
