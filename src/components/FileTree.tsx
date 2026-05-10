@@ -5,8 +5,6 @@ interface FileTreeProps {
   rootPath: string | null;
   tree: DirEntry[];
   onOpenFile: (path: string) => void;
-  onDeleteEntry: (path: string) => void;
-  onRenameEntry: (oldPath: string, newName: string) => void;
 }
 
 function getIcon(entry: DirEntry, expanded: boolean): string {
@@ -18,13 +16,10 @@ interface TreeNodeProps {
   entry: DirEntry;
   depth: number;
   onOpenFile: (path: string) => void;
-  onDeleteEntry: (path: string) => void;
-  onRenameEntry: (oldPath: string, newName: string) => void;
 }
 
-function TreeNode({ entry, depth, onOpenFile, onDeleteEntry, onRenameEntry }: TreeNodeProps) {
+function TreeNode({ entry, depth, onOpenFile }: TreeNodeProps) {
   const [expanded, setExpanded] = useState(depth < 1);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const handleClick = () => {
     if (entry.is_dir) {
@@ -34,62 +29,16 @@ function TreeNode({ entry, depth, onOpenFile, onDeleteEntry, onRenameEntry }: Tr
     }
   };
 
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY });
-  };
-
-  const closeContextMenu = () => setContextMenu(null);
-
   return (
     <div className="tree-node">
       <div
         className="tree-row"
         style={{ paddingLeft: `${depth * 16 + 6}px` }}
         onClick={handleClick}
-        onContextMenu={handleContextMenu}
       >
         <span className="tree-icon">{getIcon(entry, expanded)}</span>
         <span className="tree-name">{entry.name}</span>
       </div>
-
-      {contextMenu && (
-        <div
-          className="context-menu-overlay"
-          onClick={closeContextMenu}
-          onContextMenu={(e) => { e.preventDefault(); closeContextMenu(); }}
-        >
-          <div
-            className="context-menu"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-          >
-            {!entry.is_dir && (
-              <div className="context-item" onClick={() => { onOpenFile(entry.path); closeContextMenu(); }}>
-                Open
-              </div>
-            )}
-            <div className="context-item" onClick={() => {
-              const name = prompt("New name:", entry.name);
-              if (name && name !== entry.name) {
-                onRenameEntry(entry.path, name);
-              }
-              closeContextMenu();
-            }}>
-              Rename
-            </div>
-            <div className="context-separator" />
-            <div className="context-item context-danger" onClick={() => {
-              if (confirm(`Delete "${entry.name}"?`)) {
-                onDeleteEntry(entry.path);
-              }
-              closeContextMenu();
-            }}>
-              Delete
-            </div>
-          </div>
-        </div>
-      )}
 
       {entry.is_dir && expanded && entry.children.length > 0 && (
         <div className="tree-children">
@@ -99,8 +48,6 @@ function TreeNode({ entry, depth, onOpenFile, onDeleteEntry, onRenameEntry }: Tr
               entry={child}
               depth={depth + 1}
               onOpenFile={onOpenFile}
-              onDeleteEntry={onDeleteEntry}
-              onRenameEntry={onRenameEntry}
             />
           ))}
         </div>
@@ -109,7 +56,7 @@ function TreeNode({ entry, depth, onOpenFile, onDeleteEntry, onRenameEntry }: Tr
   );
 }
 
-export function FileTree({ rootPath, tree, onOpenFile, onDeleteEntry, onRenameEntry }: FileTreeProps) {
+export function FileTree({ rootPath, tree, onOpenFile }: FileTreeProps) {
   if (!rootPath) {
     return (
       <div className="filetree-empty">
@@ -141,8 +88,6 @@ export function FileTree({ rootPath, tree, onOpenFile, onDeleteEntry, onRenameEn
               entry={entry}
               depth={1}
               onOpenFile={onOpenFile}
-              onDeleteEntry={onDeleteEntry}
-              onRenameEntry={onRenameEntry}
             />
           ))}
         </div>

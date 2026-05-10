@@ -5,7 +5,6 @@ interface TabBarProps {
   activeTabId: string | null;
   onSelectTab: (id: string) => void;
   onCloseTab: (id: string) => void;
-  onNewTab: () => void;
 }
 
 export function TabBar({
@@ -13,7 +12,6 @@ export function TabBar({
   activeTabId,
   onSelectTab,
   onCloseTab,
-  onNewTab,
 }: TabBarProps) {
   return (
     <div className="tab-bar">
@@ -41,9 +39,6 @@ export function TabBar({
           </div>
         ))}
       </div>
-      <button className="tab-new" onClick={onNewTab} title="New Tab">
-        +
-      </button>
     </div>
   );
 }

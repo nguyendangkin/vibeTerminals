@@ -6,6 +6,7 @@ import { TabBar } from "./components/TabBar";
 import { EditorPanel } from "./components/EditorPanel";
 import { FileTree } from "./components/FileTree";
 import { CommandPalette } from "./components/CommandPalette";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { NoteList } from "./components/NoteList";
 import { NoteCardList } from "./components/NoteCardList";
 import { ProjectBar } from "./components/ProjectBar";
@@ -64,6 +65,7 @@ function App() {
   const [resizingSidebar, setResizingSidebar] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [projectDeleteTarget, setProjectDeleteTarget] = useState<Project | null>(null);
+  const [closingTab, setClosingTab] = useState<{ id: string; title: string } | null>(null);
 
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [gitLog, setGitLog] = useState<GitLog | null>(null);
@@ -255,54 +257,14 @@ function App() {
     }
   }, [projects, activeProjectId]);
 
-  const handleDeleteEntry = useCallback(async (path: string) => {
-    if (!activeProjectId || !rootPath) return;
-    try {
-      await invoke("delete_file", { path });
-      updateWorkspace(activeProjectId, (ws) => {
-        const nextTabs = ws.tabs.filter((t) => t.path !== path);
-        const deletedId = ws.tabs.find((t) => t.path === path)?.id;
-        if (deletedId) dirtyContentRef.current.delete(deletedId);
-        const idx = ws.tabs.findIndex((t) => t.id === deletedId);
-        return {
-          ...ws,
-          tabs: nextTabs,
-          activeTabId: ws.activeTabId === deletedId
-            ? (nextTabs[Math.min(idx, nextTabs.length - 1)]?.id ?? null)
-            : ws.activeTabId,
-        };
-      });
-      await refreshProjectTree(activeProjectId, rootPath);
-    } catch (err) { console.error(err); }
-  }, [activeProjectId, rootPath, updateWorkspace, refreshProjectTree]);
-
-  const handleRenameEntry = useCallback(async (oldPath: string, newName: string) => {
-    if (!activeProjectId || !rootPath) return;
-    try {
-      const parent = oldPath.replace(/[/\\][^/\\]*$/, "");
-      const newPath = parent + "/" + newName;
-      await invoke("rename_entry", { oldPath, newPath });
-      updateWorkspace(activeProjectId, (ws) => ({
-        ...ws,
-        tabs: ws.tabs.map((t) => t.path === oldPath ? { ...t, path: newPath, title: newName } : t),
-      }));
-      await refreshProjectTree(activeProjectId, rootPath);
-    } catch (err) { console.error(err); }
-  }, [activeProjectId, rootPath, updateWorkspace, refreshProjectTree]);
-
   // ── tab actions ───────────────────────────────────────────────────────────
-  const handleNewTab = useCallback(() => {
-    if (!activeProjectId) return;
-    const tab = createTab("untitled", null, "", "plaintext");
-    updateWorkspace(activeProjectId, (ws) => ({ ...ws, tabs: [...ws.tabs, tab], activeTabId: tab.id }));
-  }, [activeProjectId, createTab, updateWorkspace]);
-
   const handleCloseTab = useCallback((id: string) => {
     if (!activeProjectId) return;
     const ws = workspaces[activeProjectId] ?? emptyWorkspace();
-    const closingTab = ws.tabs.find((t) => t.id === id);
-    if (closingTab?.dirty) {
-      if (!confirm(`"${closingTab.title}" has unsaved changes. Close anyway?`)) return;
+    const target = ws.tabs.find((t) => t.id === id);
+    if (target?.dirty) {
+      setClosingTab({ id: target.id, title: target.title });
+      return;
     }
     dirtyContentRef.current.delete(id);
     updateWorkspace(activeProjectId, (w) => {
@@ -315,6 +277,25 @@ function App() {
       };
     });
   }, [activeProjectId, workspaces, updateWorkspace]);
+
+  const handleConfirmCloseTab = useCallback(() => {
+    if (!closingTab || !activeProjectId) return;
+    dirtyContentRef.current.delete(closingTab.id);
+    updateWorkspace(activeProjectId, (w) => {
+      const idx = w.tabs.findIndex((t) => t.id === closingTab.id);
+      const next = w.tabs.filter((t) => t.id !== closingTab.id);
+      return {
+        ...w,
+        tabs: next,
+        activeTabId: w.activeTabId === closingTab.id ? (next[Math.min(idx, next.length - 1)]?.id ?? null) : w.activeTabId,
+      };
+    });
+    setClosingTab(null);
+  }, [closingTab, activeProjectId, updateWorkspace]);
+
+  const handleCancelCloseTab = useCallback(() => {
+    setClosingTab(null);
+  }, []);
 
   const handleSaveFile = useCallback(async () => {
     if (!activeTab || !activeProjectId) return;
@@ -582,7 +563,6 @@ function App() {
       switch (key) {
         case "o": e.preventDefault(); handleAddProject(); break;
         case "s": e.preventDefault(); handleSaveFile(); break;
-        case "n": e.preventDefault(); handleNewTab(); break;
         case "p": e.preventDefault();
           invoke<string | null>("pick_file").then((p) => { if (p) openFileInTab(p); }).catch(() => {});
           break;
@@ -590,14 +570,13 @@ function App() {
       }
     }
   }, [tabs, activeTabId, handleAddProject, handleSaveFile,
-      handleNewTab, handleCloseTab, openFileInTab,
+      handleCloseTab, openFileInTab,
       setActiveTabId]);
 
   // ── command palette entries ───────────────────────────────────────────────
   const commands = [
     { id: "open-folder", label: "Add Project Folder", shortcut: "Ctrl+O", action: handleAddProject },
     { id: "save", label: "Save File", shortcut: "Ctrl+S", action: handleSaveFile },
-    { id: "new-tab", label: "New Tab", shortcut: "Ctrl+N", action: handleNewTab },
     { id: "close-tab", label: "Close Tab", shortcut: "Ctrl+W", action: () => activeTabId && handleCloseTab(activeTabId) },
     { id: "toggle-terminal", label: "Toggle Terminal", shortcut: "Ctrl+`", action: () => handleTopTab("terminal") },
     { id: "note-panel", label: "Notes Panel", shortcut: "Ctrl+Shift+N", action: () => handleTopTab("note") },
@@ -648,8 +627,6 @@ function App() {
                     rootPath={rootPath}
                     tree={fileTree}
                     onOpenFile={openFileInTab}
-                    onDeleteEntry={handleDeleteEntry}
-                    onRenameEntry={handleRenameEntry}
                   />
                 ) : (
                   <div className="project-empty-state">
@@ -714,7 +691,6 @@ function App() {
                       activeTabId={activeTabId}
                       onSelectTab={setActiveTabId}
                       onCloseTab={handleCloseTab}
-                      onNewTab={handleNewTab}
                     />
 
                     <div className="editor-area">
@@ -803,43 +779,28 @@ function App() {
       )}
 
       {projectDeleteTarget && (
-        <div
-          className="project-delete-modal-overlay"
-          onClick={handleCancelDeleteProject}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            handleCancelDeleteProject();
-          }}
+        <ConfirmDialog
+          open
+          title="Delete project?"
+          message="This removes the project from the sidebar and closes its open tabs."
+          confirmLabel="Delete project"
+          onConfirm={handleConfirmDeleteProject}
+          onCancel={handleCancelDeleteProject}
         >
-          <div
-            className="project-delete-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="project-delete-modal-header">
-              <div className="project-delete-modal-icon">!</div>
-              <div>
-                <div className="project-delete-modal-title">Delete project?</div>
-                <div className="project-delete-modal-subtitle">
-                  This removes the project from the sidebar and closes its open tabs.
-                </div>
-              </div>
-            </div>
+          <div className="confirm-dialog-body-name">{projectDeleteTarget.name}</div>
+          <div className="confirm-dialog-body-path">{projectDeleteTarget.path}</div>
+        </ConfirmDialog>
+      )}
 
-            <div className="project-delete-modal-body">
-              <div className="project-delete-modal-name">{projectDeleteTarget.name}</div>
-              <div className="project-delete-modal-path">{projectDeleteTarget.path}</div>
-            </div>
-
-            <div className="project-delete-modal-actions">
-              <button className="project-delete-modal-btn" onClick={handleCancelDeleteProject}>
-                Cancel
-              </button>
-              <button className="project-delete-modal-btn project-delete-modal-btn-danger" onClick={handleConfirmDeleteProject}>
-                Delete project
-              </button>
-            </div>
-          </div>
-        </div>
+      {closingTab && (
+        <ConfirmDialog
+          open
+          title={`"${closingTab.title}" has unsaved changes.`}
+          message="Close anyway?"
+          confirmLabel="Close"
+          onConfirm={handleConfirmCloseTab}
+          onCancel={handleCancelCloseTab}
+        />
       )}
     </div>
   );

@@ -134,21 +134,6 @@ fn write_file_content(path: String, content: String) -> Result<(), String> {
     std::fs::write(&path, &content).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-fn delete_file(path: String) -> Result<(), String> {
-    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
-    if metadata.is_dir() {
-        std::fs::remove_dir_all(&path).map_err(|e| e.to_string())
-    } else {
-        std::fs::remove_file(&path).map_err(|e| e.to_string())
-    }
-}
-
-#[tauri::command]
-fn rename_entry(old_path: String, new_path: String) -> Result<(), String> {
-    std::fs::rename(&old_path, &new_path).map_err(|e| e.to_string())
-}
-
 fn scan_dir(path: &str, depth: usize) -> Result<Vec<DirEntry>, String> {
     let entries = std::fs::read_dir(path).map_err(|e| e.to_string())?;
     let mut result: Vec<DirEntry> = Vec::new();
@@ -502,8 +487,6 @@ pub fn run() {
             write_clipboard,
             read_file_content,
             write_file_content,
-            delete_file,
-            rename_entry,
             list_dir,
             git_status,
             git_log,
