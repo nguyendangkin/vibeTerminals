@@ -124,12 +124,31 @@ function leafIds(root: PaneNode): string[] {
   return [...leafIds(root.a), ...leafIds(root.b)];
 }
 
+function findLeaf(node: PaneNode, id: string): TerminalLeaf | null {
+  if (node.type === "leaf") return node.id === id ? node : null;
+  return findLeaf(node.a, id) ?? findLeaf(node.b, id);
+}
+
+function swapLeaves(node: PaneNode, idA: string, idB: string, leafA: TerminalLeaf, leafB: TerminalLeaf): PaneNode {
+  if (node.type === "leaf") {
+    if (node.id === idA) return { ...leafB };
+    if (node.id === idB) return { ...leafA };
+    return node;
+  }
+  const newA = swapLeaves(node.a, idA, idB, leafA, leafB);
+  const newB = swapLeaves(node.b, idA, idB, leafA, leafB);
+  if (newA === node.a && newB === node.b) return node;
+  return { ...node, a: newA, b: newB };
+}
+
 // ── Layout computation ─────────────────────────────────────────────────────
 // Produces a flat list of leaf rects + divider rects in root-container pixels.
 // TerminalPanels are always rendered at the same depth in the virtual DOM
 // (direct children of term-body), so they never remount when the tree changes.
 
 const DIV_PX = 4;
+const DRAG_THRESHOLD = 4;
+const FLIP_EASE = "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)";
 
 function computeLayout(
   node: PaneNode,
@@ -217,6 +236,18 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
   const [submenuType, setSubmenuType] = useState<"task" | "prompt" | null>(null);
   const [submenuPos, setSubmenuPos] = useState({ x: 0, y: 0 });
   const submenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dragLeafId, setDragLeafId] = useState<string | null>(null);
+  const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
+  const [swapTargetId, setSwapTargetId] = useState<string | null>(null);
+  const dragState = useRef<{
+    leafId: string;
+    startX: number;
+    startY: number;
+    dragging: boolean;
+  } | null>(null);
+  const dragJustEnded = useRef(false);
+  const flipRectsRef = useRef<Map<string, DOMRect> | null>(null);
+  const flipCleanupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
     if (submenuTimerRef.current) clearTimeout(submenuTimerRef.current);
@@ -243,15 +274,80 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
     return () => ro.disconnect();
   }, []);
 
+  // ── FLIP animation after terminal swap ──────────────────────────────────
+  useLayoutEffect(() => {
+    const prevRects = flipRectsRef.current;
+    if (!prevRects || prevRects.size === 0) return;
+    flipRectsRef.current = null;
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const wrappers = container.querySelectorAll<HTMLElement>(".term-pane-wrapper");
+    const animations: { el: HTMLElement; dx: number; dy: number }[] = [];
+
+    wrappers.forEach((el) => {
+      const id = el.getAttribute("data-leaf-id");
+      if (!id) return;
+      const prev = prevRects.get(id);
+      if (!prev) return;
+      const next = el.getBoundingClientRect();
+      const dx = prev.left - next.left;
+      const dy = prev.top - next.top;
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        el.style.transition = "none";
+        el.style.transform = `translate(${dx}px, ${dy}px)`;
+        animations.push({ el, dx, dy });
+      }
+    });
+
+    if (animations.length > 0) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!containerRef.current?.isConnected) return;
+          animations.forEach(({ el }) => {
+            el.style.transition = FLIP_EASE;
+            el.style.transform = "translate(0, 0)";
+          });
+          // Cancel any stale cleanup from a previous swap
+          if (flipCleanupRef.current) clearTimeout(flipCleanupRef.current);
+
+          const cleanup = () => {
+            flipCleanupRef.current = null;
+            animations.forEach(({ el }) => {
+              el.style.transition = "";
+              el.style.transform = "";
+            });
+          };
+          const maxDuration = 400; // match FLIP_EASE duration
+          flipCleanupRef.current = setTimeout(cleanup, maxDuration);
+        });
+      });
+    }
+    return () => {
+      if (flipCleanupRef.current) clearTimeout(flipCleanupRef.current);
+    };
+  }, [root]);
+
   // ── Compute flat layout from tree (debounced for performance) ──────────
   const { leaves, dividers } = useMemo(() => {
-    const leaves: LeafLayout[] = [];
+    const rawLeaves: LeafLayout[] = [];
     const dividers: DividerLayout[] = [];
     if (debouncedSize.w > 0 && debouncedSize.h > 0) {
-      computeLayout(root, 0, 0, debouncedSize.w, debouncedSize.h, leaves, dividers);
+      computeLayout(root, 0, 0, debouncedSize.w, debouncedSize.h, rawLeaves, dividers);
     }
-    return { leaves, dividers };
+    // Sort leaves by numeric ID so React never reorders DOM nodes.
+    // This prevents xterm.js canvas reset in WebView2 (Tauri) caused by
+    // insertBefore detaching and reattaching the canvas element.
+    rawLeaves.sort((a, b) => {
+      const nA = parseInt(a.id.replace(/^term_/, ""), 10);
+      const nB = parseInt(b.id.replace(/^term_/, ""), 10);
+      return nA - nB;
+    });
+    return { leaves: rawLeaves, dividers };
   }, [root, debouncedSize]);
+  const leavesRef = useRef(leaves);
+  leavesRef.current = leaves;
 
   // ── Panel height resize ────────────────────────────────────────────────
   const handleResizeStart = useCallback(
@@ -275,6 +371,104 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
     },
     [height],
   );
+
+  // ── Terminal drag-and-drop reorder ──────────────────────────────────────
+  const swapTargetRef = useRef<string | null>(null);
+
+  const endDrag = useCallback(() => {
+    if (dragState.current?.dragging) {
+      dragJustEnded.current = true;
+      setTimeout(() => { dragJustEnded.current = false; }, 0);
+    }
+    dragState.current = null;
+    setDragLeafId(null);
+    setGhostPos(null);
+    setSwapTargetId(null);
+    swapTargetRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      const ds = dragState.current;
+      if (!ds) return;
+
+      if (!ds.dragging) {
+        if (Math.abs(e.clientX - ds.startX) > DRAG_THRESHOLD || Math.abs(e.clientY - ds.startY) > DRAG_THRESHOLD) {
+          ds.dragging = true;
+          setDragLeafId(ds.leafId);
+          setGhostPos({ x: e.clientX, y: e.clientY });
+        }
+        return;
+      }
+
+      setGhostPos({ x: e.clientX, y: e.clientY });
+
+      // Find target leaf under cursor
+      const container = containerRef.current;
+      if (!container) return;
+      const cr = container.getBoundingClientRect();
+      const relX = e.clientX - cr.left;
+      const relY = e.clientY - cr.top;
+      const currentLeaves = leavesRef.current;
+      let targetId: string | null = null;
+      for (const leaf of currentLeaves) {
+        if (leaf.id === ds.leafId) continue;
+        const r = leaf.rect;
+        if (relX >= r.left && relX <= r.left + r.width &&
+            relY >= r.top && relY <= r.top + r.height) {
+          targetId = leaf.id;
+          break;
+        }
+      }
+      if (swapTargetRef.current !== targetId) {
+        swapTargetRef.current = targetId;
+        setSwapTargetId(targetId);
+      }
+    };
+
+    const onMouseUp = () => {
+      const ds = dragState.current;
+      if (!ds) return;
+
+      if (ds.dragging) {
+        const targetId = swapTargetRef.current;
+        if (targetId) {
+          // Capture rects for FLIP animation
+          const container = containerRef.current;
+          if (container) {
+            const wrappers = container.querySelectorAll<HTMLElement>(".term-pane-wrapper");
+            const rects = new Map<string, DOMRect>();
+            wrappers.forEach((el) => {
+              const id = el.getAttribute("data-leaf-id");
+              if (id) rects.set(id, el.getBoundingClientRect());
+            });
+            flipRectsRef.current = rects;
+          }
+
+          setRoot((prev) => {
+            const leafA = findLeaf(prev, ds.leafId);
+            const leafB = findLeaf(prev, targetId);
+            if (leafA && leafB) {
+              return swapLeaves(prev, ds.leafId, targetId, leafA, leafB);
+            }
+            return prev;
+          });
+        }
+      }
+
+      endDrag();
+    };
+
+    const onBlur = () => endDrag();
+    window.addEventListener("blur", onBlur);
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [endDrag]);
 
   // ── Pane actions ──────────────────────────────────────────────────────
   const handleSplitH = useCallback(
@@ -396,10 +590,18 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
           className="term-body"
           style={{ flex: 1, position: "relative", overflow: "hidden" }}
         >
-          {leaves.map((leaf) => (
+          {leaves.map((leaf) => {
+            const isDragging = dragLeafId === leaf.id;
+            const isTarget = swapTargetId === leaf.id;
+            let wrapperClass = "term-pane-wrapper";
+            if (leaf.id === activeId) wrapperClass += " term-pane-wrapper-active";
+            if (isDragging) wrapperClass += " term-pane-wrapper-dragging";
+            if (isTarget) wrapperClass += " term-pane-wrapper-swap-target";
+            return (
             <div
               key={leaf.id}
-              className={leaf.id === activeId ? "term-pane-wrapper term-pane-wrapper-active" : "term-pane-wrapper"}
+              data-leaf-id={leaf.id}
+              className={wrapperClass}
               style={{
                 position: "absolute",
                 left: leaf.rect.left,
@@ -409,9 +611,27 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
                 display: "flex",
                 flexDirection: "column",
               }}
-              onMouseDown={() => setActiveId(leaf.id)}
+              onMouseDown={() => {
+                if (dragJustEnded.current) {
+                  dragJustEnded.current = false;
+                  return;
+                }
+                setActiveId(leaf.id);
+              }}
             >
-              <div className="term-pane-toolbar">
+              <div
+                className="term-pane-toolbar"
+                onMouseDown={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (target.closest("button")) return;
+                  dragState.current = {
+                    leafId: leaf.id,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    dragging: false,
+                  };
+                }}
+              >
                 <span className="term-pane-title">{leaf.name}</span>
                 <div className="term-pane-actions">
                   <button
@@ -472,7 +692,8 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
                 onCommandChange={(cmd) => handleCommandChange(leaf.id, cmd)}
               />
             </div>
-          ))}
+          );
+          })}
 
           {/* Context menu */}
           {ctxMenu && (() => {
@@ -646,6 +867,28 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
               }}
             />
           ))}
+
+          {/* Drag ghost */}
+          {dragLeafId !== null && ghostPos !== null && (() => {
+            const leaf = leaves.find((l) => l.id === dragLeafId);
+            if (!leaf) return null;
+            return (
+              <div
+                className="term-pane-ghost"
+                style={{
+                  position: "fixed",
+                  left: ghostPos.x - 120,
+                  top: ghostPos.y - 13,
+                  zIndex: 1000,
+                  pointerEvents: "none",
+                }}
+              >
+                <div className="term-pane-ghost-inner">
+                  {leaf.name}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </>
