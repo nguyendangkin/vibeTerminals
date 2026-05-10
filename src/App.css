@@ -166,7 +166,9 @@ body,
   height: var(--topbar-control-size);
   margin: 0 1px 0 0;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
+  border-bottom-color: transparent;
+  border-radius: 10px 10px 0 0;
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 12px;
@@ -423,9 +425,10 @@ body,
   align-items: center;
   justify-content: flex-start;
   position: relative;
-  transition: border-radius 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  outline: 1.5px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 2px;
+  transition: border-radius 0.15s ease, transform 0.15s ease, background 0.15s ease, outline-color 0.15s ease;
 }
-
 .project-bar-avatar-btn:hover {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
