@@ -1102,7 +1102,7 @@ body,
   cursor: row-resize;
 }
 
-/* â”€â”€â”€ Per-pane terminal toolbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Per-pane terminal toolbar ─────────────────────────────────────────── */
 .term-pane-toolbar {
   display: flex;
   align-items: center;
@@ -1166,7 +1166,7 @@ body,
   background: rgba(0, 122, 204, 0.12);
 }
 
-/* â”€â”€â”€ xterm host â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── xterm host ──────────────────────────────────────────────────────────── */
 .terminal-xterm-host {
   flex: 1;
   min-width: 0;
@@ -1183,17 +1183,11 @@ body,
   overflow: visible !important;
 }
 
-
-
-
-
-
 .terminal-xterm-host .xterm {
   height: 100%;
   width: 100%;
   overflow: visible !important;
 }
-
 
 .terminal-xterm-inner .xterm .xterm-screen {
   background-color: var(--bg-primary);
@@ -1206,11 +1200,6 @@ body,
   width: 12px !important;
   opacity: 0; /* Make native scrollbar invisible but functional */
 }
-
-
-
-
-
 
 
 
