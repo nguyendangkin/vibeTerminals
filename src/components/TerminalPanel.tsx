@@ -267,6 +267,7 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
 
     term.open(containerRef.current);
     try { fitAddon.fit(); } catch { /* ignore */ }
+
     for (const delay of [0, 16, 50, 150]) {
       setTimeout(() => { try { fitAddon.fit(); } catch { /* ignore */ } }, delay);
     }
@@ -418,11 +419,16 @@ function TerminalPanel({ instanceId, cwd, visible, shell, active, initialCommand
   return (
     <div style={{ display: visible ? "flex" : "none", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <div
-        ref={containerRef}
         className={`terminal-xterm-host${active ? " terminal-xterm-active" : ""}`}
-        style={{ flex: 1, minHeight: 0, minWidth: 0 }}
+        style={{ flex: 1, minHeight: 0, minWidth: 0, position: "relative" }}
         onMouseDown={onFocus}
-      />
+      >
+        <div 
+          ref={containerRef} 
+          className="terminal-xterm-inner"
+          style={{ width: "100%", height: "100%" }} 
+        />
+      </div>
     </div>
   );
 });
