@@ -1174,8 +1174,12 @@ body,
   width: 100%;
 }
 
-.terminal-xterm-host .xterm .xterm-viewport,
 .terminal-xterm-host .xterm .xterm-screen {
+  background-color: var(--bg-primary);
+  clip-path: inset(0 10px 0 0);
+}
+
+.terminal-xterm-host .xterm .xterm-viewport {
   background-color: var(--bg-primary);
 }
 
