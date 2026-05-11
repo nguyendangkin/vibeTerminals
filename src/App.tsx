@@ -12,7 +12,7 @@ import { NoteCardList } from "./components/NoteCardList";
 import { ProjectBar } from "./components/ProjectBar";
 import { TopBar, type TopTab } from "./components/TopBar";
 import { TerminalContainer } from "./components/TerminalContainer";
-import { WelcomeScreen } from "./components/WelcomeScreen";
+
 import { GitPanel } from "./components/GitPanel";
 import { GitGraph } from "./components/GitGraph";
 import "./App.css";
@@ -680,7 +680,7 @@ function App() {
           )}
 
           {/* Editor area: explorer / note / about / none */}
-          {(topTab === "explorer" || topTab === null || topTab === "note" || topTab === "about") && (
+          {(topTab === "explorer" || topTab === "note" || topTab === "about") && (
             <div className="main-area">
               {topTab === "about" ? (
                 <div className="about-main">
@@ -716,9 +716,7 @@ function App() {
                   );
                 })()
               ) : (
-                tabs.length === 0 ? (
-                  <WelcomeScreen />
-                ) : (
+                tabs.length === 0 ? null : (
                   <>
                     <TabBar
                       tabs={tabs}
