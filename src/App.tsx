@@ -671,7 +671,7 @@ function App() {
               <div className="sidebar" style={{ width: sidebarWidth }}>
                 <div className="about-sidebar">
                   <div className="about-sidebar-body">
-                    <div className="about-section-item">About</div>
+                    <button className="about-section-item about-section-item-active">About</button>
                   </div>
                 </div>
               </div>
