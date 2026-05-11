@@ -235,7 +235,7 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
     text: string; x: number; y: number; sourceId: string;
   } | null>(null);
   const [submenuType, setSubmenuType] = useState<"task" | "prompt" | null>(null);
-  const [submenuPos, setSubmenuPos] = useState({ x: 0, y: 0 });
+  const [submenuPos, setSubmenuPos] = useState({ x: 0, y: 0, opensLeft: false });
   const submenuTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dragLeafId, setDragLeafId] = useState<string | null>(null);
   const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null);
@@ -804,10 +804,11 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
                         // Clamp submenu within viewport
                         const subW = 180;
                         const subH = Math.min(items.length * 28 + 8, 300);
-                        const x = rect.right + subW > window.innerWidth ? rect.left - subW : rect.right;
-                        const y = rect.top + subH > window.innerHeight ? window.innerHeight - subH - 8 : rect.top;
+                        const opensLeft = rect.right + subW > window.innerWidth;
+                        const x = opensLeft ? window.innerWidth - Math.max(subW, rect.left) : Math.max(0, rect.right);
+                        const y = Math.max(0, rect.top + subH > window.innerHeight ? window.innerHeight - subH - 8 : rect.top);
                         setSubmenuType(type);
-                        setSubmenuPos({ x: Math.max(0, x), y: Math.max(0, y) });
+                        setSubmenuPos({ x, y, opensLeft });
                       }}
                       onMouseLeave={() => {
                         submenuTimerRef.current = setTimeout(() => {
@@ -826,7 +827,9 @@ function TerminalContainerImpl({ projectId, cwd, visible, fullscreen, notes, onT
                 {submenuType && (
                   <div
                     className="context-menu context-submenu"
-                    style={{ left: submenuPos.x, top: submenuPos.y }}
+                    style={submenuPos.opensLeft
+                      ? { right: submenuPos.x, top: submenuPos.y, left: "auto" }
+                      : { left: submenuPos.x, top: submenuPos.y }}
                     onClick={(e) => e.stopPropagation()}
                     onMouseEnter={() => {
                       if (submenuTimerRef.current) {
