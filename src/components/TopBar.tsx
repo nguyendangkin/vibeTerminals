@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-export type TopTab = "terminal" | "explorer" | "note" | "git";
+export type TopTab = "terminal" | "explorer" | "note" | "git" | "about";
 
 interface TopBarProps {
   activeTab: TopTab | null;
@@ -11,6 +11,7 @@ interface TopBarProps {
   globalShell?: string;
   onGlobalShellChange?: (shell: string) => void;
   gitChangesCount?: number;
+  onBrandClick?: () => void;
 }
 
 const TABS: { id: TopTab; label: string; icon: ReactNode }[] = [
@@ -76,7 +77,7 @@ const SHELL_LABELS: Record<string, string> = {
   pwsh: "PS Core",
 };
 
-export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlobalShellChange, gitChangesCount }: TopBarProps) {
+export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlobalShellChange, gitChangesCount, onBrandClick }: TopBarProps) {
   const appWindow = getCurrentWindow();
   const [maximized, setMaximized] = useState(false);
   const [shellOpen, setShellOpen] = useState(false);
@@ -196,7 +197,11 @@ export function TopBar({ activeTab, onTabClick, onReloadAll, globalShell, onGlob
       </div>
       <div className="top-bar-center" data-tauri-drag-region />
       <div className="top-bar-actions">
-        <div className="top-bar-brand">vibeTerminals</div>
+        <button
+          className={`top-bar-brand${activeTab === "about" ? " top-bar-brand-active" : ""}`}
+          onClick={() => onBrandClick?.()}
+          title="About vibeTerminals"
+        >vibeTerminals</button>
         <div className="window-controls">
           <button
             className="window-btn window-minimize"

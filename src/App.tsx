@@ -414,6 +414,14 @@ function App() {
     });
   }, [activeProjectId]);
 
+  const handleBrandClick = useCallback(() => {
+    setTopTab((prev) => {
+      const next = prev === "about" ? null : "about";
+      if (activeProjectId) projectTopTabsRef.current[activeProjectId] = next;
+      return next;
+    });
+  }, [activeProjectId]);
+
   const handleSelectProject = useCallback((id: string) => {
     setActiveProjectId(id);
     setTopTab(projectTopTabsRef.current[id] ?? "explorer");
@@ -615,6 +623,7 @@ function App() {
             }
           }}
           gitChangesCount={gitStatus?.total_changes}
+          onBrandClick={handleBrandClick}
         />
 
         <div className="content-area" style={topTab === "terminal" ? { display: "none" } : undefined}>
@@ -656,10 +665,35 @@ function App() {
             </>
           )}
 
-          {/* Editor area: explorer / note / none */}
-          {(topTab === "explorer" || topTab === null || topTab === "note") && (
+          {/* Sidebar: about */}
+          {topTab === "about" && (
+            <>
+              <div className="sidebar" style={{ width: sidebarWidth }}>
+                <div className="about-sidebar">
+                  <div className="about-sidebar-body">
+                    <div className="about-section-item">About</div>
+                  </div>
+                </div>
+              </div>
+              <div className="sidebar-resize-handle" onMouseDown={handleResizeStart} />
+            </>
+          )}
+
+          {/* Editor area: explorer / note / about / none */}
+          {(topTab === "explorer" || topTab === null || topTab === "note" || topTab === "about") && (
             <div className="main-area">
-              {topTab === "note" ? (
+              {topTab === "about" ? (
+                <div className="about-main">
+                  <div className="about-main-body">
+                    <div className="about-app-name">vibeTerminals</div>
+                    <div className="about-version">Version 0.1.0</div>
+                    <div className="about-desc">
+                      A vibe coding workstation — terminal, notes, and git side by side,
+                      so you can prompt, edit, and ship without leaving the flow.
+                    </div>
+                  </div>
+                </div>
+              ) : topTab === "note" ? (
                 (() => {
                   const filtered = activeNotes.filter((n) => n.type === activeNoteFilter);
                   return (
