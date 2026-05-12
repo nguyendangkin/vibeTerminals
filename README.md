@@ -10,13 +10,12 @@ Built with Tauri 2 + React + xterm.js.
 
 ## Features
 
-- **Real PTY terminal** (PowerShell, CMD, pwsh) with 256-color and TrueColor support
+- **Real PTY terminal** (PowerShell, CMD, pwsh)
 - **Split panes** — split horizontally/vertically, drag to resize, drag-and-drop to reorder
-- **File explorer** with tree view, hidden files and `node_modules`/`target` filtered out
+- **File explorer** with tree view
 - **Text editor** with tabs, unsaved change indicators, and save confirmation
 - **Notes** — task notes and prompt notes, send note content as terminal commands
 - **Git integration** — stage/commit/discard, ASCII commit graph, real-time file watching
-- **Command palette** (Ctrl+Shift+P) with quick search
 - **Multi-project** — Discord-style project bar, each project keeps its own terminal/editor/notes state
 - **Frameless window** with custom window controls
 
