@@ -1,7 +1,34 @@
-# Tauri + React + Typescript
+# vibeTerminals
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Terminal, editor, notes, and git — side by side in one window.
 
-## Recommended IDE Setup
+Built with Tauri 2 + React + xterm.js.
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+![screenshot 1](https://raw.githubusercontent.com/nguyendangkin/vibeTerminals/master/public/Screenshot%202026-05-12%20094824.png)
+
+![screenshot 2](https://raw.githubusercontent.com/nguyendangkin/vibeTerminals/master/public/Screenshot%202026-05-12%20094834.png)
+
+## Features
+
+- **Real PTY terminal** (PowerShell, CMD, pwsh) with 256-color and TrueColor support
+- **Split panes** — split horizontally/vertically, drag to resize, drag-and-drop to reorder
+- **File explorer** with tree view, hidden files and `node_modules`/`target` filtered out
+- **Text editor** with tabs, unsaved change indicators, and save confirmation
+- **Notes** — task notes and prompt notes, send note content as terminal commands
+- **Git integration** — stage/commit/discard, ASCII commit graph, real-time file watching
+- **Command palette** (Ctrl+Shift+P) with quick search
+- **Multi-project** — Discord-style project bar, each project keeps its own terminal/editor/notes state
+- **Frameless window** with custom window controls
+
+## Dev
+
+```bash
+npm install
+npm run tauri dev
+```
+
+## Build
+
+```bash
+npm run tauri build
+```
